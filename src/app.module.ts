@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AdminModule } from './admin/admin.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -23,6 +24,17 @@ import { VendorsModule } from './vendors/vendors.module';
       validationSchema: envValidationSchema,
       validationOptions: { abortEarly: true },
     }),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [
+          {
+            ttl: config.get<number>('throttle.ttl')!,
+            limit: config.get<number>('throttle.limit')!,
+          },
+        ],
+      }),
+    }),
     LoggerModule,
     PrismaModule,
     AuthModule,
@@ -34,6 +46,9 @@ import { VendorsModule } from './vendors/vendors.module';
   controllers: [AppController],
   providers: [
     AppService,
+    // Global rate limiting. Registered first so it runs before auth and
+    // throttles unauthenticated floods (e.g. brute-force on future auth routes).
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     // Global auth: every route requires a valid JWT unless marked @Public().
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     // Global RBAC: enforces @Roles() metadata. Runs after JwtAuthGuard.

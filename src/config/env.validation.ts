@@ -23,6 +23,14 @@ export const envValidationSchema = Joi.object({
   SUPABASE_SERVICE_ROLE_KEY: Joi.string().required(),
   SUPABASE_JWT_SECRET: Joi.string().required(),
 
-  SWAGGER_ENABLED: Joi.boolean().default(true),
+  // Comma-separated CORS allowlist. Optional; empty = no cross-origin access.
+  CORS_ORIGINS: Joi.string().allow('').optional(),
+
+  // Rate limiting: window (ms) and max requests per window per IP.
+  THROTTLE_TTL: Joi.number().default(60000),
+  THROTTLE_LIMIT: Joi.number().default(100),
+
+  // Leave unset to default Swagger on outside production and off in production.
+  SWAGGER_ENABLED: Joi.boolean().optional(),
   SWAGGER_PATH: Joi.string().default('docs'),
 });
