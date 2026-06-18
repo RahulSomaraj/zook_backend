@@ -1,0 +1,146 @@
+// Zook backend — Prisma schema (Phase 1: users, vendors, KYC, catalog, products)
+// Datasource is Supabase Postgres. Use the pooled URL for the app (DATABASE_URL)
+// and the direct URL for migrations (DIRECT_URL).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ── Enums ──────────────────────────────────────────────────────────────
+
+enum Role {
+  customer
+  vendor
+  inspector
+  admin
+}
+
+enum VendorStatus {
+  pending
+  approved
+  suspended
+}
+
+enum KycStatus {
+  pending
+  approved
+  rejected
+}
+
+enum ProductSource {
+  vendor
+  c2c
+}
+
+enum ConditionGrade {
+  like_new
+  good
+  fair
+  poor
+}
+
+// ── Models ─────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  phone     String?
+  fullName  String?  @map("full_name")
+  avatarUrl String?  @map("avatar_url")
+  role      Role     @default(customer)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  vendor Vendor?
+
+  @@map("users")
+}
+
+model Vendor {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @unique @map("user_id") @db.Uuid
+  storeName      String       @map("store_name")
+  storeLogoUrl   String?      @map("store_logo_url")
+  storeAddress   String?      @map("store_address") // courier pickup only
+  pickupLat      Float?       @map("pickup_lat")
+  pickupLng      Float?       @map("pickup_lng")
+  commissionRate Decimal      @default(10.0) @map("commission_rate") @db.Decimal(5, 2)
+  status         VendorStatus @default(pending)
+  strikeCount    Int          @default(0) @map("strike_count")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kyc      VendorKyc[]
+  products Product[]
+
+  @@index([status])
+  @@map("vendors")
+}
+
+model VendorKyc {
+  id                  String    @id @default(uuid()) @db.Uuid
+  vendorId            String    @map("vendor_id") @db.Uuid
+  tradeLicenseUrl     String    @map("trade_license_url") // private bucket
+  tradeLicenseNumber  String    @map("trade_license_number")
+  tradeLicenseExpiry  DateTime  @map("trade_license_expiry") @db.Date
+  emiratesIdFrontUrl  String    @map("emirates_id_front_url") // private bucket
+  emiratesIdBackUrl   String    @map("emirates_id_back_url") // private bucket
+  status              KycStatus @default(pending)
+  reviewedBy          String?   @map("reviewed_by") @db.Uuid // admin user id
+  rejectionReason     String?   @map("rejection_reason")
+  reviewedAt          DateTime? @map("reviewed_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([status])
+  @@map("vendor_kyc")
+}
+
+model ProductCatalog {
+  id            String   @id @default(uuid()) @db.Uuid
+  brand         String
+  model         String
+  year          Int?
+  category      String
+  stockImageUrl String?  @map("stock_image_url") // official manufacturer photo
+  specs         Json? // storage, display, battery...
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  products Product[]
+
+  @@unique([brand, model, year])
+  @@index([category])
+  @@map("product_catalog")
+}
+
+model Product {
+  id               String         @id @default(uuid()) @db.Uuid
+  vendorId         String?        @map("vendor_id") @db.Uuid // null if C2C
+  catalogId        String         @map("catalog_id") @db.Uuid
+  source           ProductSource
+  conditionGrade   ConditionGrade @map("condition_grade")
+  storageVariant   String?        @map("storage_variant")
+  color            String?
+  inspectionImages String[]       @map("inspection_images") // real photos
+  description      String?
+  whatIsIncluded   Json?          @map("what_is_included")
+  price            Decimal        @db.Decimal(10, 2)
+  stockQty         Int            @default(1) @map("stock_qty")
+  isActive         Boolean        @default(true) @map("is_active")
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  vendor  Vendor?        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  catalog ProductCatalog @relation(fields: [catalogId], references: [id])
+
+  @@index([vendorId])
+  @@index([catalogId])
+  @@index([isActive])
+  @@map("products")
+}
