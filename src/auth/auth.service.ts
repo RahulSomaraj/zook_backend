@@ -4,21 +4,27 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
-import { AuthProvider } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
+import { AuthProvider, type User } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { Role } from '../common/enums/role.enum';
 import { PrismaService } from '../database/prisma.service';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { LoginDto } from './dto/login.dto';
 import { OAuthSignInDto } from './dto/oauth-signin.dto';
+import { SupabaseSignInDto } from './dto/supabase-signin.dto';
 import { SignupCustomerDto } from './dto/signup-customer.dto';
 import { SignupVendorDto } from './dto/signup-vendor.dto';
 import { IssuedTokens, TokenService } from './token.service';
-import { OAuthVerifierService } from './oauth-verifier.service';
+import {
+  OAuthVerifierService,
+  type VerifiedIdentity,
+} from './oauth-verifier.service';
+import { SupabaseAuthService } from './supabase.service';
 
 const BCRYPT_ROUNDS = 12;
 
-interface PublicUser {
+export interface PublicUser {
   id: string;
   email: string;
   role: Role;
@@ -34,11 +40,18 @@ export interface AuthResult {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
+  /** Verified emails granted the admin role on social sign-in (lowercased). */
+  private readonly adminEmails: ReadonlySet<string>;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly tokens: TokenService,
     private readonly oauth: OAuthVerifierService,
-  ) {}
+    private readonly supabase: SupabaseAuthService,
+    config: ConfigService,
+  ) {
+    this.adminEmails = new Set(config.get<string[]>('admin.emails') ?? []);
+  }
 
   // ── Email / password ─────────────────────────────────────────────────────
 
@@ -113,6 +126,41 @@ export class AuthService {
     dto: OAuthSignInDto,
   ): Promise<AuthResult> {
     const identity = await this.oauth.verify(provider, dto.idToken);
+    return this.issueForIdentity(identity, dto.role);
+  }
+
+  // ── Supabase ─────────────────────────────────────────────────────────────
+
+  /**
+   * Sign in / sign up via Supabase. The client completes the Google handshake
+   * through Supabase and sends us the resulting access_token; we verify it and
+   * apply the same find-or-create + link rules as the native providers, with
+   * the Supabase user id as the linking subject.
+   */
+  async signInWithSupabase(dto: SupabaseSignInDto): Promise<AuthResult> {
+    const identity = await this.supabase.verify(dto.accessToken);
+    return this.issueForIdentity(identity, dto.role);
+  }
+
+  /**
+   * Shared identity resolution for all social providers. Linking rules:
+   *  - Known (provider, sub) → log that user in.
+   *  - Otherwise, if the verified email already has an account → link to it.
+   *  - Otherwise create a fresh account with the requested role (customer or
+   *    vendor; defaults to customer).
+   *
+   * The admin allowlist (ADMIN_EMAILS) is authoritative and overrides the
+   * requested role: any verified email on it is granted `admin`, and a
+   * pre-existing non-admin account whose owner is later added is promoted on
+   * their next sign-in. Demotion is never automatic — see {@link reconcileAdmin}.
+   */
+  private async issueForIdentity(
+    identity: VerifiedIdentity,
+    role?: Role.CUSTOMER | Role.VENDOR,
+  ): Promise<AuthResult> {
+    const { provider } = identity;
+    const email = identity.email?.toLowerCase();
+    const isAdmin = !!email && this.adminEmails.has(email);
 
     const existingIdentity = await this.prisma.authIdentity.findUnique({
       where: {
@@ -124,11 +172,11 @@ export class AuthService {
       include: { user: true },
     });
     if (existingIdentity) {
-      return this.issueFor(this.toPublicUser(existingIdentity.user));
+      const user = await this.reconcileAdmin(existingIdentity.user, isAdmin);
+      return this.issueFor(this.toPublicUser(user));
     }
 
-    const desiredRole: Role = dto.role ?? Role.CUSTOMER;
-    const email = identity.email?.toLowerCase();
+    const desiredRole: Role = isAdmin ? Role.ADMIN : (role ?? Role.CUSTOMER);
 
     const user = await this.prisma.$transaction(async (tx) => {
       // Link to an existing account with the same verified email, if any.
@@ -136,7 +184,7 @@ export class AuthService {
         ? await tx.user.findUnique({ where: { email } })
         : null;
 
-      const target =
+      let target =
         linkTo ??
         (await tx.user.create({
           data: {
@@ -146,6 +194,14 @@ export class AuthService {
             role: desiredRole,
           },
         }));
+
+      // Promote a pre-existing linked account if its owner is now allowlisted.
+      if (linkTo && isAdmin && (target.role as Role) !== Role.ADMIN) {
+        target = await tx.user.update({
+          where: { id: target.id },
+          data: { role: Role.ADMIN },
+        });
+      }
 
       await tx.authIdentity.create({
         data: {
@@ -158,6 +214,22 @@ export class AuthService {
     });
 
     return this.issueFor(this.toPublicUser(user));
+  }
+
+  /**
+   * Promote a returning user to admin if their email is now on the allowlist.
+   * Demotion is intentionally NOT automatic: revoking admin is a deliberate act,
+   * not a side effect of an empty/misconfigured allowlist.
+   */
+  private async reconcileAdmin(user: User, isAdmin: boolean): Promise<User> {
+    if (isAdmin && (user.role as Role) !== Role.ADMIN) {
+      this.logger.log(`Granting admin via allowlist: ${user.id}`);
+      return this.prisma.user.update({
+        where: { id: user.id },
+        data: { role: Role.ADMIN },
+      });
+    }
+    return user;
   }
 
   // ── Refresh ──────────────────────────────────────────────────────────────

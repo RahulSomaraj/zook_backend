@@ -1,8 +1,13 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
+import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { AppJwtPayload } from './jwt.strategy';
 import { Role } from '../common/enums/role.enum';
+
+// `@nestjs/jwt` types `expiresIn` as `number | ms.StringValue` (a template
+// literal like "15m"), which a plain config string is not assignable to. Our
+// values come from validated env, so we cast to the expected option type.
+type ExpiresIn = JwtSignOptions['expiresIn'];
 
 export interface IssuedTokens {
   accessToken: string;
@@ -39,11 +44,11 @@ export class TokenService {
   async issue(user: TokenSubject): Promise<IssuedTokens> {
     const accessToken = await this.jwt.signAsync(
       { sub: user.id, email: user.email, role: user.role, typ: 'access' },
-      { secret: this.secret, expiresIn: this.accessExpiresIn },
+      { secret: this.secret, expiresIn: this.accessExpiresIn as ExpiresIn },
     );
     const refreshToken = await this.jwt.signAsync(
       { sub: user.id, typ: 'refresh' },
-      { secret: this.secret, expiresIn: this.refreshExpiresIn },
+      { secret: this.secret, expiresIn: this.refreshExpiresIn as ExpiresIn },
     );
     return {
       accessToken,

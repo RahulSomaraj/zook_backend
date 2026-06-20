@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { LoginDto } from './dto/login.dto';
 import { OAuthSignInDto } from './dto/oauth-signin.dto';
+import { SupabaseSignInDto } from './dto/supabase-signin.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { SignupCustomerDto } from './dto/signup-customer.dto';
 import { SignupVendorDto } from './dto/signup-vendor.dto';
@@ -54,6 +55,16 @@ export class AuthController {
   @ApiOperation({ summary: 'Sign in / sign up with Apple (send id_token)' })
   apple(@Body() dto: OAuthSignInDto) {
     return this.auth.signInWithApple(dto);
+  }
+
+  @Public()
+  @Post('oauth/supabase')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Sign in / sign up via Supabase (send the access_token)',
+  })
+  supabase(@Body() dto: SupabaseSignInDto) {
+    return this.auth.signInWithSupabase(dto);
   }
 
   @Public()

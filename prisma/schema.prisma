@@ -48,6 +48,7 @@ enum ConditionGrade {
 enum AuthProvider {
   google
   apple
+  supabase
 }
 
 // ── Models ─────────────────────────────────────────────────────────────

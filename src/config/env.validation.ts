@@ -28,6 +28,16 @@ export const envValidationSchema = Joi.object({
   GOOGLE_CLIENT_IDS: Joi.string().allow('').optional(),
   APPLE_CLIENT_IDS: Joi.string().allow('').optional(),
 
+  // Supabase Auth: project URL is required to derive the token issuer + JWKS.
+  // The JWT secret is only needed for legacy HS256 projects. Both optional
+  // until Supabase sign-in is enabled.
+  SUPABASE_URL: Joi.string().uri().optional(),
+  SUPABASE_JWT_SECRET: Joi.string().allow('').optional(),
+
+  // Comma-separated emails granted the admin role on Supabase sign-in.
+  // Optional; empty = no admins provisioned via the allowlist.
+  ADMIN_EMAILS: Joi.string().allow('').optional(),
+
   // Comma-separated CORS allowlist. Optional; empty = no cross-origin access.
   CORS_ORIGINS: Joi.string().allow('').optional(),
 

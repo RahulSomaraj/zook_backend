@@ -35,6 +35,24 @@ export default () => ({
         .filter(Boolean),
     },
   },
+  supabase: {
+    // Base project URL, e.g. https://<ref>.supabase.co. Used to derive the
+    // token issuer (`${url}/auth/v1`) and the JWKS endpoint for verification.
+    url: process.env.SUPABASE_URL,
+    // Legacy HS256 projects: the project JWT secret. Newer projects sign
+    // asymmetrically (ES256/RS256) and are verified via JWKS instead — leave
+    // this empty in that case.
+    jwtSecret: process.env.SUPABASE_JWT_SECRET,
+  },
+  admin: {
+    // Comma-separated allowlist of emails granted the `admin` role on Supabase
+    // sign-in. Authoritative: a client can never self-assign admin, so this is
+    // also how the very first admin is bootstrapped (no seed needed).
+    emails: (process.env.ADMIN_EMAILS ?? '')
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean),
+  },
   cors: {
     // Comma-separated allowlist, e.g. "https://admin.zook.ae,https://vendor.zook.ae".
     // Empty in prod means no cross-origin browser access until configured.

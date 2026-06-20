@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { OAuthVerifierService } from './oauth-verifier.service';
+import { SupabaseAuthService } from './supabase.service';
 import { TokenService } from './token.service';
 
 /**
@@ -30,7 +31,13 @@ import { TokenService } from './token.service';
     PrismaModule,
   ],
   controllers: [AuthController],
-  providers: [JwtStrategy, TokenService, OAuthVerifierService, AuthService],
+  providers: [
+    JwtStrategy,
+    TokenService,
+    OAuthVerifierService,
+    SupabaseAuthService,
+    AuthService,
+  ],
   exports: [PassportModule],
 })
 export class AuthModule {}
