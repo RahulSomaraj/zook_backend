@@ -4,7 +4,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 /**
- * Authenticates the request via the Supabase JWT strategy, unless the route is
+ * Authenticates the request via the JWT strategy, unless the route is
  * marked @Public(). Intended to be registered as a global guard.
  */
 @Injectable()

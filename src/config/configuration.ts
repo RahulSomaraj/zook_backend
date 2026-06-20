@@ -14,11 +14,26 @@ export default () => ({
     level: process.env.LOG_LEVEL ?? 'log',
     format: process.env.LOG_FORMAT ?? 'pretty',
   },
-  supabase: {
-    url: process.env.SUPABASE_URL,
-    anonKey: process.env.SUPABASE_ANON_KEY,
-    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-    jwtSecret: process.env.SUPABASE_JWT_SECRET,
+  jwt: {
+    secret: process.env.JWT_SECRET,
+    accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN ?? '15m',
+    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '30d',
+  },
+  oauth: {
+    // Comma-separated allowlists of accepted token audiences (client IDs).
+    google: {
+      clientIds: (process.env.GOOGLE_CLIENT_IDS ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    },
+    apple: {
+      // Apple "audience" = your app's bundle ID and/or Services ID.
+      clientIds: (process.env.APPLE_CLIENT_IDS ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    },
   },
   cors: {
     // Comma-separated allowlist, e.g. "https://admin.zook.ae,https://vendor.zook.ae".

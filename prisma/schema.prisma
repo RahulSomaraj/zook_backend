@@ -45,20 +45,45 @@ enum ConditionGrade {
   poor
 }
 
+enum AuthProvider {
+  google
+  apple
+}
+
 // ── Models ─────────────────────────────────────────────────────────────
 
 model User {
-  id        String   @id @default(uuid()) @db.Uuid
-  email     String   @unique
-  phone     String?
-  fullName  String?  @map("full_name")
-  avatarUrl String?  @map("avatar_url")
-  role      Role     @default(customer)
-  createdAt DateTime @default(now()) @map("created_at")
+  id            String   @id @default(uuid()) @db.Uuid
+  email         String   @unique
+  phone         String?
+  fullName      String?  @map("full_name")
+  avatarUrl     String?  @map("avatar_url")
+  role          Role     @default(customer)
+  // Null for accounts created purely via a social provider (Google/Apple).
+  passwordHash  String?  @map("password_hash")
+  emailVerified Boolean  @default(false) @map("email_verified")
+  createdAt     DateTime @default(now()) @map("created_at")
 
-  vendor Vendor?
+  vendor     Vendor?
+  identities AuthIdentity[]
 
   @@map("users")
+}
+
+// Links a user to an external identity provider (Google/Apple). A user may have
+// several (e.g. signed in with both Google and Apple, or password + social).
+model AuthIdentity {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  provider       AuthProvider
+  providerUserId String       @map("provider_user_id") // the provider's subject (sub)
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+  @@map("auth_identities")
 }
 
 model Vendor {

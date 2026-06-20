@@ -18,10 +18,15 @@ export const envValidationSchema = Joi.object({
   DATABASE_URL: Joi.string().uri({ scheme: ['postgresql', 'postgres'] }).required(),
   DIRECT_URL: Joi.string().uri({ scheme: ['postgresql', 'postgres'] }).optional(),
 
-  SUPABASE_URL: Joi.string().uri().required(),
-  SUPABASE_ANON_KEY: Joi.string().required(),
-  SUPABASE_SERVICE_ROLE_KEY: Joi.string().required(),
-  SUPABASE_JWT_SECRET: Joi.string().required(),
+  // Auth: secret used to sign/verify our own JWTs.
+  JWT_SECRET: Joi.string().min(32).required(),
+  JWT_ACCESS_EXPIRES_IN: Joi.string().default('15m'),
+  JWT_REFRESH_EXPIRES_IN: Joi.string().default('30d'),
+
+  // Social sign-in: comma-separated accepted client IDs (token audiences).
+  // Optional until the providers are configured.
+  GOOGLE_CLIENT_IDS: Joi.string().allow('').optional(),
+  APPLE_CLIENT_IDS: Joi.string().allow('').optional(),
 
   // Comma-separated CORS allowlist. Optional; empty = no cross-origin access.
   CORS_ORIGINS: Joi.string().allow('').optional(),

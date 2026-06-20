@@ -6,7 +6,6 @@ import { Role } from '../common/enums/role.enum';
 
 /**
  * The authenticated principal attached to every request as `req.user`.
- * `role` is sourced from the Supabase JWT's app_metadata.
  */
 export interface AuthUser {
   id: string;
@@ -14,12 +13,12 @@ export interface AuthUser {
   role: Role;
 }
 
-interface SupabaseJwtPayload {
+/** Claims carried by our application-issued access tokens. */
+export interface AppJwtPayload {
   sub: string;
   email?: string;
-  role?: string; // postgres role (authenticated) — not our app role
-  app_metadata?: { role?: string };
-  user_metadata?: { role?: string };
+  role: Role;
+  typ: 'access' | 'refresh';
 }
 
 @Injectable()
@@ -28,24 +27,23 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: config.get<string>('supabase.jwtSecret')!,
-      // Supabase signs access tokens with the "authenticated" audience.
-      audience: 'authenticated',
+      secretOrKey: config.get<string>('jwt.secret')!,
     });
   }
 
-  validate(payload: SupabaseJwtPayload): AuthUser {
-    const role =
-      payload.app_metadata?.role ?? payload.user_metadata?.role ?? Role.CUSTOMER;
-
-    if (!Object.values(Role).includes(role as Role)) {
+  validate(payload: AppJwtPayload): AuthUser {
+    // Refresh tokens must never grant access to protected routes.
+    if (payload.typ !== 'access') {
+      throw new UnauthorizedException('Invalid token type');
+    }
+    if (!payload.role || !Object.values(Role).includes(payload.role)) {
       throw new UnauthorizedException('Token has no valid application role');
     }
 
     return {
       id: payload.sub,
       email: payload.email,
-      role: role as Role,
+      role: payload.role,
     };
   }
 }
