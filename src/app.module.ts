@@ -4,11 +4,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AuthModule } from './auth/auth.module';
 import configuration from './config/configuration';
 import { envValidationSchema } from './config/env.validation';
-import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
-import { RolesGuard } from './common/guards/roles.guard';
 import { LoggerModule } from './common/logger/logger.module';
 import { PrismaModule } from './database/prisma.module';
 
@@ -33,18 +30,12 @@ import { PrismaModule } from './database/prisma.module';
     }),
     LoggerModule,
     PrismaModule,
-    AuthModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
-    // Global rate limiting. Registered first so it runs before auth and
-    // throttles unauthenticated floods (e.g. brute-force on future auth routes).
+    // Global rate limiting — throttles request floods per client IP.
     { provide: APP_GUARD, useClass: ThrottlerGuard },
-    // Global auth: every route requires a valid JWT unless marked @Public().
-    { provide: APP_GUARD, useClass: JwtAuthGuard },
-    // Global RBAC: enforces @Roles() metadata. Runs after JwtAuthGuard.
-    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
 export class AppModule {}

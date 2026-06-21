@@ -51,6 +51,29 @@ enum AuthProvider {
   supabase
 }
 
+enum InspectorStatus {
+  pending
+  active
+  suspended
+}
+
+enum AvailabilityStatus {
+  available
+  busy
+  offline
+}
+
+enum AdminStatus {
+  active
+  suspended
+}
+
+enum AdminLevel {
+  support // L1 — read-mostly, handles tickets
+  manager // L2 — approves KYC, manages vendors/inspectors
+  super_admin // L3 — full platform control
+}
+
 // ── Models ─────────────────────────────────────────────────────────────
 
 model User {
@@ -59,16 +82,39 @@ model User {
   phone         String?
   fullName      String?  @map("full_name")
   avatarUrl     String?  @map("avatar_url")
-  role          Role     @default(customer)
   // Null for accounts created purely via a social provider (Google/Apple).
   passwordHash  String?  @map("password_hash")
   emailVerified Boolean  @default(false) @map("email_verified")
   createdAt     DateTime @default(now()) @map("created_at")
 
-  vendor     Vendor?
-  identities AuthIdentity[]
+  // A person can hold several roles at once (e.g. customer + vendor); the grant
+  // set lives in user_roles, not a single column. Each role's operational data
+  // (if any) lives in its 1-1 profile extension below.
+  userRoles   UserRole[]
+  vendor      Vendor?
+  inspector   Inspector?
+  admin       Admin?
+  identities  AuthIdentity[]
+  // KYC records this user reviewed in their admin capacity.
+  reviewedKyc VendorKyc[]    @relation("KycReviewer")
 
   @@map("users")
+}
+
+// A grant of one role to one user. The many-to-many between users and the Role
+// enum: a user with rows for {customer, vendor} can enter both of those apps.
+model UserRole {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      Role
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role]) // one grant per (user, role); makes grants idempotent
+  @@index([userId])
+  @@index([role])
+  @@map("user_roles")
 }
 
 // Links a user to an external identity provider (Google/Apple). A user may have
@@ -100,7 +146,7 @@ model Vendor {
   strikeCount    Int          @default(0) @map("strike_count")
   createdAt      DateTime     @default(now()) @map("created_at")
 
-  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   kyc      VendorKyc[]
   products Product[]
 
@@ -108,21 +154,60 @@ model Vendor {
   @@map("vendors")
 }
 
-model VendorKyc {
-  id                  String    @id @default(uuid()) @db.Uuid
-  vendorId            String    @map("vendor_id") @db.Uuid
-  tradeLicenseUrl     String    @map("trade_license_url") // private bucket
-  tradeLicenseNumber  String    @map("trade_license_number")
-  tradeLicenseExpiry  DateTime  @map("trade_license_expiry") @db.Date
-  emiratesIdFrontUrl  String    @map("emirates_id_front_url") // private bucket
-  emiratesIdBackUrl   String    @map("emirates_id_back_url") // private bucket
-  status              KycStatus @default(pending)
-  reviewedBy          String?   @map("reviewed_by") @db.Uuid // admin user id
-  rejectionReason     String?   @map("rejection_reason")
-  reviewedAt          DateTime? @map("reviewed_at")
-  createdAt           DateTime  @default(now()) @map("created_at")
+// Inspector profile — operational data for users who hold the `inspector` role.
+model Inspector {
+  id                   String             @id @default(uuid()) @db.Uuid
+  userId               String             @unique @map("user_id") @db.Uuid
+  assignedZones        String[]           @map("assigned_zones") // region/emirate codes
+  availabilityStatus   AvailabilityStatus @default(offline) @map("availability_status")
+  ratingAvg            Decimal            @default(0.0) @map("rating_avg") @db.Decimal(3, 2)
+  completedInspections Int                @default(0) @map("completed_inspections")
+  status               InspectorStatus    @default(pending)
+  createdAt            DateTime           @default(now()) @map("created_at")
 
-  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([availabilityStatus])
+  @@map("inspectors")
+}
+
+// Admin profile — for users who hold the `admin` role. Coarse `level` plus
+// fine-grained `permissions` scope strings (e.g. "kyc:approve").
+model Admin {
+  id          String      @id @default(uuid()) @db.Uuid
+  userId      String      @unique @map("user_id") @db.Uuid
+  department  String? // e.g. "operations", "finance", "support"
+  level       AdminLevel  @default(support)
+  permissions String[]    @default([]) // scope strings, e.g. ["kyc:approve","vendor:suspend"]
+  status      AdminStatus @default(active)
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([level])
+  @@index([status])
+  @@map("admins")
+}
+
+model VendorKyc {
+  id                 String    @id @default(uuid()) @db.Uuid
+  vendorId           String    @map("vendor_id") @db.Uuid
+  tradeLicenseUrl    String    @map("trade_license_url") // private bucket
+  tradeLicenseNumber String    @map("trade_license_number")
+  tradeLicenseExpiry DateTime  @map("trade_license_expiry") @db.Date
+  emiratesIdFrontUrl String    @map("emirates_id_front_url") // private bucket
+  emiratesIdBackUrl  String    @map("emirates_id_back_url") // private bucket
+  status             KycStatus @default(pending)
+  reviewedBy         String?   @map("reviewed_by") @db.Uuid // admin user id
+  rejectionReason    String?   @map("rejection_reason")
+  reviewedAt         DateTime? @map("reviewed_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  // The reviewing admin (a user). FK guarantees a real user; "is an admin" is a
+  // service-layer check. SetNull keeps the audit row if the admin is deleted.
+  reviewer User?  @relation("KycReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
 
   @@index([vendorId])
   @@index([status])
