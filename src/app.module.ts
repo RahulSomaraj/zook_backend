@@ -8,6 +8,7 @@ import configuration from './config/configuration';
 import { envValidationSchema } from './config/env.validation';
 import { LoggerModule } from './common/logger/logger.module';
 import { PrismaModule } from './database/prisma.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -30,11 +31,12 @@ import { PrismaModule } from './database/prisma.module';
     }),
     LoggerModule,
     PrismaModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
-    // Global rate limiting — throttles request floods per client IP.
+    // Global rate limiting - throttles request floods per client IP.
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
