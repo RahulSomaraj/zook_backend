@@ -83,6 +83,26 @@ export class TokenService {
     };
   }
 
+  /** Short-lived token proving the holder verified ownership of `phone`. */
+  async signPhoneVerifyToken(phone: string): Promise<string> {
+    return this.jwt.signAsync(
+      { phone, type: 'phone_verify' },
+      this.signOptions('15m'),
+    );
+  }
+
+  /** Verifies a phone-verify token and returns the phone it was issued for. */
+  async verifyPhoneVerifyToken(token: string): Promise<{ phone: string }> {
+    const payload = await this.jwt.verifyAsync<{ phone: string; type: string }>(
+      token,
+      { secret: this.secret },
+    );
+    if (payload.type !== 'phone_verify') {
+      throw new Error('Not a phone-verify token');
+    }
+    return { phone: payload.phone };
+  }
+
   /** Converts a jsonwebtoken-style ttl ("15m", "30d", "900") to seconds. */
   private ttlToSeconds(ttl: string): number {
     const match = /^(\d+)([smhd])?$/.exec(ttl.trim());

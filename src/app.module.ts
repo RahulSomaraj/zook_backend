@@ -9,6 +9,10 @@ import { envValidationSchema } from './config/env.validation';
 import { LoggerModule } from './common/logger/logger.module';
 import { PrismaModule } from './database/prisma.module';
 import { AuthModule } from './auth/auth.module';
+import { StorageModule } from './storage/storage.module';
+import { OtpModule } from './otp/otp.module';
+import { VendorsModule } from './vendors/vendors.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -31,7 +35,11 @@ import { AuthModule } from './auth/auth.module';
     }),
     LoggerModule,
     PrismaModule,
+    StorageModule,
+    OtpModule,
     AuthModule,
+    VendorsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [

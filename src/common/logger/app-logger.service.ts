@@ -20,14 +20,20 @@ const LEVEL_PRIORITY: Record<string, number> = {
  */
 @Injectable({ scope: Scope.TRANSIENT })
 export class AppLogger extends ConsoleLogger {
-  private readonly threshold = LEVEL_PRIORITY[process.env.LOG_LEVEL ?? 'log'] ?? 2;
+  private readonly threshold =
+    LEVEL_PRIORITY[process.env.LOG_LEVEL ?? 'log'] ?? 2;
   private readonly asJson = (process.env.LOG_FORMAT ?? 'pretty') === 'json';
 
   private enabled(level: LogLevel): boolean {
     return (LEVEL_PRIORITY[level] ?? 2) <= this.threshold;
   }
 
-  private emit(level: LogLevel, message: unknown, context?: string, trace?: string) {
+  private emit(
+    level: LogLevel,
+    message: unknown,
+    context?: string,
+    trace?: string,
+  ) {
     if (!this.enabled(level)) return;
 
     if (this.asJson) {
@@ -39,7 +45,7 @@ export class AppLogger extends ConsoleLogger {
           typeof message === 'string' ? message : JSON.stringify(message),
         ...(trace ? { trace } : {}),
       };
-      // eslint-disable-next-line no-console
+
       console.log(JSON.stringify(line));
       return;
     }
@@ -47,19 +53,19 @@ export class AppLogger extends ConsoleLogger {
     // Pretty mode: delegate to Nest's coloured console logger.
     switch (level) {
       case 'error':
-        super.error(message as string, trace, context);
+        super.error(message, trace, context);
         break;
       case 'warn':
-        super.warn(message as string, context);
+        super.warn(message, context);
         break;
       case 'debug':
-        super.debug(message as string, context);
+        super.debug(message, context);
         break;
       case 'verbose':
-        super.verbose(message as string, context);
+        super.verbose(message, context);
         break;
       default:
-        super.log(message as string, context);
+        super.log(message, context);
     }
   }
 

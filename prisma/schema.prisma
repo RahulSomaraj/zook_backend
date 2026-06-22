@@ -79,12 +79,13 @@ enum AdminLevel {
 model User {
   id            String   @id @default(uuid()) @db.Uuid
   email         String   @unique
-  phone         String?
+  phone         String?  @unique
   fullName      String?  @map("full_name")
   avatarUrl     String?  @map("avatar_url")
   // Null for accounts created purely via a social provider (Google/Apple).
   passwordHash  String?  @map("password_hash")
   emailVerified Boolean  @default(false) @map("email_verified")
+  phoneVerified Boolean  @default(false) @map("phone_verified")
   createdAt     DateTime @default(now()) @map("created_at")
 
   // A person can hold several roles at once (e.g. customer + vendor); the grant
@@ -254,4 +255,22 @@ model Product {
   @@index([catalogId])
   @@index([isActive])
   @@map("products")
+}
+
+// ── Phone OTP verification ─────────────────────────────────────────────
+// One row per OTP issued to a phone number. The code is stored hashed; rows
+// expire and are single-use. Powers vendor phone-OTP login & signup.
+model PhoneVerification {
+  id         String    @id @default(uuid()) @db.Uuid
+  phone      String
+  codeHash   String    @map("code_hash") // bcrypt hash of the OTP
+  purpose    String    @default("vendor_auth") // why the code was issued
+  expiresAt  DateTime  @map("expires_at")
+  attempts   Int       @default(0) // failed verification attempts
+  consumedAt DateTime? @map("consumed_at") // set once successfully used
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([phone])
+  @@index([expiresAt])
+  @@map("phone_verifications")
 }

@@ -104,6 +104,10 @@ function setupSwagger(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
       'access-token',
     )
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      'phone-verify-token',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
@@ -131,7 +135,10 @@ function configureShutdown(app: INestApplication): void {
         process.exit(0);
       })
       .catch((err) => {
-        log.error('Error during shutdown', err instanceof Error ? err.stack : err);
+        log.error(
+          'Error during shutdown',
+          err instanceof Error ? err.stack : err,
+        );
         process.exit(1);
       });
   };

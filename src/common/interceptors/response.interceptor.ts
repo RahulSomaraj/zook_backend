@@ -23,9 +23,10 @@ export interface ApiResponse<T> {
  * (used for pagination). Otherwise the whole return value becomes `data`.
  */
 @Injectable()
-export class ResponseInterceptor<T>
-  implements NestInterceptor<T, ApiResponse<T>>
-{
+export class ResponseInterceptor<T> implements NestInterceptor<
+  T,
+  ApiResponse<T>
+> {
   intercept(
     context: ExecutionContext,
     next: CallHandler,
@@ -42,8 +43,8 @@ export class ResponseInterceptor<T>
 
         return {
           success: true,
-          data: hasMeta ? (payload as any).data : (payload as T),
-          ...(hasMeta ? { meta: (payload as any).meta } : {}),
+          data: hasMeta ? payload.data : (payload as T),
+          ...(hasMeta ? { meta: payload.meta } : {}),
           timestamp: new Date().toISOString(),
           path: request.url,
         };
