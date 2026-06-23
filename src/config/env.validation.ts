@@ -34,6 +34,13 @@ export const envValidationSchema = Joi.object({
   SUPABASE_URL: Joi.string().uri().optional(),
   SUPABASE_JWT_SECRET: Joi.string().allow('').optional(),
 
+  // Supabase Storage: service-role key for minting signed upload/download URLs
+  // (server-only). Optional until Storage signing is enabled; required at
+  // runtime by StorageService when a signed URL is actually requested.
+  SUPABASE_SERVICE_ROLE_KEY: Joi.string().allow('').optional(),
+  // Optional dedicated storage host (https://<ref>.storage.supabase.co).
+  SUPABASE_STORAGE_URL: Joi.string().uri().optional(),
+
   // Comma-separated emails granted the admin role on Supabase sign-in.
   // Optional; empty = no admins provisioned via the allowlist.
   ADMIN_EMAILS: Joi.string().allow('').optional(),

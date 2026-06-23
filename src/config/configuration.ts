@@ -43,6 +43,12 @@ export default () => ({
     // asymmetrically (ES256/RS256) and are verified via JWKS instead — leave
     // this empty in that case.
     jwtSecret: process.env.SUPABASE_JWT_SECRET,
+    // Service-role key for server-side Storage operations (minting signed
+    // upload/download URLs). Bypasses RLS — SERVER ONLY, never sent to clients.
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    // Optional dedicated storage host for faster large uploads, e.g.
+    // https://<ref>.storage.supabase.co. Falls back to `url` when unset.
+    storageUrl: process.env.SUPABASE_STORAGE_URL || process.env.SUPABASE_URL,
   },
   admin: {
     // Comma-separated allowlist of emails granted the `admin` role on Supabase
