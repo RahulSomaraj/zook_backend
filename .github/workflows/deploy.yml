@@ -1,0 +1,66 @@
+name: Deploy to Azure
+
+# Auto-deploys on every push to develop. Also runnable manually from the
+# Actions tab (workflow_dispatch) with an optional branch override.
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to deploy
+        required: false
+        default: develop
+
+concurrency:
+  # Never run two deploys at once; cancel an in-progress one if a newer push lands.
+  group: deploy-azure
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.AZURE_HOST }}
+          username: ${{ secrets.AZURE_USER }}
+          key: ${{ secrets.AZURE_SSH_KEY }}
+          port: ${{ secrets.AZURE_SSH_PORT || 22 }}
+          command_timeout: 20m
+          script: |
+            set -euo pipefail
+
+            BRANCH="${{ github.event.inputs.branch || 'develop' }}"
+            DEPLOY_PATH="${{ secrets.AZURE_DEPLOY_PATH }}"
+            PM2_APP_NAME="zook-backend"
+
+            echo ">>> cd $DEPLOY_PATH"
+            cd "$DEPLOY_PATH"
+
+            echo ">>> Fetching latest code ($BRANCH)"
+            git fetch --all --prune
+            git checkout "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+
+            echo ">>> Installing dependencies"
+            npm ci
+
+            echo ">>> Prisma generate + migrate deploy"
+            npx prisma generate
+            npx prisma migrate deploy
+
+            echo ">>> Building"
+            npm run build
+
+            echo ">>> Restarting via PM2"
+            if pm2 describe "$PM2_APP_NAME" > /dev/null 2>&1; then
+              pm2 reload "$PM2_APP_NAME" --update-env
+            else
+              pm2 start ecosystem.config.js --env production
+            fi
+            pm2 save
+
+            echo ">>> Done."
+            pm2 status "$PM2_APP_NAME"

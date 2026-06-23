@@ -89,14 +89,13 @@ export class VendorAuthService {
   }
 
   /**
-   * Step 3: create the vendor account. `phone` is the number proven by the
-   * phone-verify token (validated by PhoneVerifyGuard), not taken from the body.
+   * Create the vendor account (vendor create page). The phone supplied in the
+   * body is normalised and stored on the user, so it can be used for OTP login
+   * later.
    */
-  async register(
-    phone: string,
-    dto: RegisterVendorDto,
-  ): Promise<AuthTokensDto> {
+  async register(dto: RegisterVendorDto): Promise<AuthTokensDto> {
     const email = dto.email.trim().toLowerCase();
+    const phone = normalizePhone(dto.phone);
     const clash = await this.prisma.user.findFirst({
       where: { OR: [{ email }, { phone }] },
       select: { id: true },

@@ -1,17 +1,14 @@
-import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, Post } from '@nestjs/common';
 import {
-  ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { AuthTokensDto } from '../auth/dto/auth-tokens.dto';
-import { VerifiedPhone } from './decorators/verified-phone.decorator';
 import { RegisterVendorDto } from './dto/register-vendor.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { PhoneVerifyGuard } from './guards/phone-verify.guard';
 import {
   RequestOtpResult,
   VendorAuthService,
@@ -43,20 +40,11 @@ export class VendorAuthController {
 
   @Post('register')
   @HttpCode(201)
-  @UseGuards(PhoneVerifyGuard)
-  @ApiBearerAuth('phone-verify-token')
   @ApiOperation({
-    summary:
-      'Create a vendor account (KYC step 1). Pass the verificationToken from otp/verify as a Bearer token.',
+    summary: 'Create a vendor account (vendor create page, KYC step 1).',
   })
   @ApiOkResponse({ type: AuthTokensDto })
-  @ApiUnauthorizedResponse({
-    description: 'Missing/invalid phone verification token',
-  })
-  register(
-    @VerifiedPhone() phone: string,
-    @Body() dto: RegisterVendorDto,
-  ): Promise<AuthTokensDto> {
-    return this.vendorAuth.register(phone, dto);
+  register(@Body() dto: RegisterVendorDto): Promise<AuthTokensDto> {
+    return this.vendorAuth.register(dto);
   }
 }
