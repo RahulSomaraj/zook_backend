@@ -76,8 +76,10 @@ export class VendorsService {
     const kyc = await this.prisma.vendorKyc.create({
       data: {
         vendorId: vendor.id,
-        tradeLicenseNumber: dto.tradeLicenseNumber,
-        tradeLicenseExpiry: new Date(dto.tradeLicenseExpiry),
+        tradeLicenseNumber: dto.tradeLicenseNumber ?? null,
+        tradeLicenseExpiry: dto.tradeLicenseExpiry
+          ? new Date(dto.tradeLicenseExpiry)
+          : null,
         tradeLicenseUrl: dto.tradeLicenseUrl,
         emiratesIdFrontUrl: dto.emiratesIdFrontUrl,
         emiratesIdBackUrl: dto.emiratesIdBackUrl,

@@ -1,17 +1,25 @@
-import { Body, Controller, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
 import {
+  ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '../auth/auth.types';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuthTokensDto } from '../auth/dto/auth-tokens.dto';
+import { Roles } from '../common/decorators/roles.decorator';
+import { Role } from '../common/enums/role.enum';
+import { RolesGuard } from '../common/guards/roles.guard';
 import { RegisterVendorDto } from './dto/register-vendor.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import {
   RequestOtpResult,
   VendorAuthService,
+  VendorMeResult,
   VerifyOtpResult,
 } from './vendor-auth.service';
 
@@ -19,6 +27,18 @@ import {
 @Controller('auth/vendor')
 export class VendorAuthController {
   constructor(private readonly vendorAuth: VendorAuthService) {}
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.VENDOR)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Authenticated vendor identity (session check / who am I)',
+  })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token' })
+  me(@CurrentUser() user: AuthenticatedUser): Promise<VendorMeResult> {
+    return this.vendorAuth.me(user.id);
+  }
 
   @Post('otp/request')
   @HttpCode(200)

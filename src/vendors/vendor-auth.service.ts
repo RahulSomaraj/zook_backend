@@ -3,7 +3,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Role as DbRole } from '@prisma/client';
+import { Role as DbRole, VendorStatus } from '@prisma/client';
 import { AuthTokensDto } from '../auth/dto/auth-tokens.dto';
 import { TokenService } from '../auth/token.service';
 import { Role } from '../common/enums/role.enum';
@@ -22,6 +22,16 @@ export interface RequestOtpResult {
 export type VerifyOtpResult =
   | { status: 'authenticated'; tokens: AuthTokensDto }
   | { status: 'verified'; verificationToken: string };
+
+export interface VendorMeResult {
+  id: string;
+  email: string;
+  fullName: string | null;
+  phone: string | null;
+  phoneVerified: boolean;
+  roles: Role[];
+  vendor: { id: string; storeName: string; status: VendorStatus } | null;
+}
 
 @Injectable()
 export class VendorAuthService {
@@ -137,6 +147,36 @@ export class VendorAuthService {
       roles: [Role.VENDOR],
       adminLevel: null,
     });
+  }
+
+  /**
+   * "Who am I" for an authenticated vendor session. Reads the user id from the
+   * validated access token and returns the current identity plus the core
+   * vendor profile — the lightweight call a client makes on app load to confirm
+   * the session is still valid.
+   */
+  async me(userId: string): Promise<VendorMeResult> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { userRoles: true, vendor: true },
+    });
+    if (!user) throw new UnauthorizedException('Account no longer exists');
+
+    return {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      phone: user.phone,
+      phoneVerified: user.phoneVerified,
+      roles: user.userRoles.map((r) => r.role as Role),
+      vendor: user.vendor
+        ? {
+            id: user.vendor.id,
+            storeName: user.vendor.storeName,
+            status: user.vendor.status,
+          }
+        : null,
+    };
   }
 
   private toTokensDto(

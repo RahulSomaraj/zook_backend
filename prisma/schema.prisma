@@ -146,12 +146,16 @@ model Vendor {
   status         VendorStatus @default(pending)
   strikeCount    Int          @default(0) @map("strike_count")
   createdAt      DateTime     @default(now()) @map("created_at")
+  // Soft delete: non-null means the vendor is archived and hidden from normal
+  // queries. Restored by clearing this back to null.
+  deletedAt      DateTime?    @map("deleted_at")
 
   user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   kyc      VendorKyc[]
   products Product[]
 
   @@index([status])
+  @@index([deletedAt])
   @@map("vendors")
 }
 
@@ -195,8 +199,8 @@ model VendorKyc {
   id                 String    @id @default(uuid()) @db.Uuid
   vendorId           String    @map("vendor_id") @db.Uuid
   tradeLicenseUrl    String    @map("trade_license_url") // private bucket
-  tradeLicenseNumber String    @map("trade_license_number")
-  tradeLicenseExpiry DateTime  @map("trade_license_expiry") @db.Date
+  tradeLicenseNumber String?   @map("trade_license_number")
+  tradeLicenseExpiry DateTime? @map("trade_license_expiry") @db.Date
   emiratesIdFrontUrl String    @map("emirates_id_front_url") // private bucket
   emiratesIdBackUrl  String    @map("emirates_id_back_url") // private bucket
   status             KycStatus @default(pending)

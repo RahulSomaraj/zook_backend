@@ -1,19 +1,27 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsDateString, IsString, MaxLength, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsDateString,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class SubmitKycDto {
-  @ApiProperty({ example: 'CN-1234567' })
+  @ApiPropertyOptional({ example: 'CN-1234567' })
+  @IsOptional()
   @IsString()
   @MinLength(3)
   @MaxLength(60)
-  tradeLicenseNumber!: string;
+  tradeLicenseNumber?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: '2026-12-31',
     description: 'Trade license expiry (ISO date).',
   })
+  @IsOptional()
   @IsDateString()
-  tradeLicenseExpiry!: string;
+  tradeLicenseExpiry?: string;
 
   @ApiProperty({
     description: 'URL from /vendors/me/kyc/documents (kind=trade_license).',
