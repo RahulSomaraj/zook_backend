@@ -3,9 +3,16 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import {
+  KycStatus,
+  Prisma,
+  Role as DbRole,
+  VendorStatus,
+} from '@prisma/client';
 import { buildMeta } from '../common/dto/pagination.dto';
+import { normalizePhone } from '../common/utils/phone.util';
 import { PrismaService } from '../database/prisma.service';
+import { CreateVendorDto } from './dto/create-vendor.dto';
 import { ListVendorsQueryDto } from './dto/list-vendors.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 
@@ -67,6 +74,46 @@ export class AdminVendorsService {
     return vendor;
   }
 
+  /**
+   * Admin-create a vendor: provisions the user, the vendor role grant and the
+   * vendor record in one transaction. The vendor can later sign in via OTP.
+   */
+  async create(dto: CreateVendorDto) {
+    const email = dto.email.trim().toLowerCase();
+    const phone = normalizePhone(dto.phone);
+
+    const clash = await this.prisma.user.findFirst({
+      where: { OR: [{ email }, { phone }] },
+      select: { id: true },
+    });
+    if (clash) {
+      throw new ConflictException(
+        'An account with this email or phone already exists',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: { email, phone, fullName: dto.ownerFullName },
+      });
+      await tx.userRole.create({
+        data: { userId: user.id, role: DbRole.vendor },
+      });
+      return tx.vendor.create({
+        data: {
+          userId: user.id,
+          storeName: dto.storeName,
+          storeAddress: dto.storeAddress,
+          commissionRate: dto.commissionRate,
+          status: dto.status ?? VendorStatus.pending,
+        },
+        include: {
+          user: { select: { id: true, fullName: true, email: true, phone: true } },
+        },
+      });
+    });
+  }
+
   /** Update editable fields (PATCH). Only provided keys change. */
   async update(id: string, dto: UpdateVendorDto) {
     await this.getActiveOrThrow(id);
@@ -82,6 +129,43 @@ export class AdminVendorsService {
         status: dto.status,
         strikeCount: dto.strikeCount,
       },
+    });
+  }
+
+  /**
+   * Activate (approve) the vendor's store. Gated: the vendor's latest KYC must
+   * be approved first. This is the second step after document approval, so the
+   * "documents approved -> vendor approved" transition is explicit.
+   */
+  async activate(id: string) {
+    const vendor = await this.getActiveOrThrow(id);
+    if (vendor.status === VendorStatus.approved) {
+      throw new ConflictException('Vendor is already approved');
+    }
+
+    const latestKyc = await this.prisma.vendorKyc.findFirst({
+      where: { vendorId: id },
+      orderBy: { createdAt: 'desc' },
+      select: { status: true },
+    });
+    if (latestKyc?.status !== KycStatus.approved) {
+      throw new ConflictException(
+        'Vendor documents must be approved before the store can be activated',
+      );
+    }
+
+    return this.prisma.vendor.update({
+      where: { id },
+      data: { status: VendorStatus.approved },
+    });
+  }
+
+  /** Suspend a vendor's store. */
+  async suspend(id: string) {
+    await this.getActiveOrThrow(id);
+    return this.prisma.vendor.update({
+      where: { id },
+      data: { status: VendorStatus.suspended },
     });
   }
 

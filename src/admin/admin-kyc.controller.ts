@@ -24,7 +24,7 @@ export class AdminKycController {
   }
 
   @Post(':id/approve')
-  @ApiOperation({ summary: 'Approve a KYC submission and activate the store' })
+  @ApiOperation({ summary: 'Approve a KYC submission (documents only; does not activate the store)' })
   approve(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.adminKyc.approve(id, user.id);
   }

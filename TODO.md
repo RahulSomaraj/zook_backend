@@ -44,11 +44,29 @@ hidden from list/detail unless `includeDeleted=true`.
 
 - `GET /admin/vendors` — paginated; filter by `status`, `search` (store/email/phone), `includeDeleted`
 - `GET /admin/vendors/:id` — detail: owner, latest KYC, product count
-- `PATCH /admin/vendors/:id` — edit all fields (storeName, address, pickup lat/lng, commissionRate, status, strikeCount). `status` doubles as approve/suspend
+- `POST /admin/vendors` — create a vendor (provisions user + vendor role + vendor record)
+- `PATCH /admin/vendors/:id` — edit profile fields (storeName, address, pickup lat/lng, commissionRate, status, strikeCount)
+- `POST /admin/vendors/:id/activate` — approve the store; **gated** on the latest KYC being approved
+- `POST /admin/vendors/:id/suspend` — suspend the store
 - `DELETE /admin/vendors/:id` — soft-delete (archive)
 - `POST /admin/vendors/:id/restore` — restore
-- Files: `src/admin/admin-vendors.controller.ts`, `admin-vendors.service.ts`, `dto/list-vendors.dto.ts`, `dto/update-vendor.dto.ts`, wired in `admin.module.ts`
+- Files: `src/admin/admin-vendors.controller.ts`, `admin-vendors.service.ts`, `dto/{create,list,update}-vendor.dto.ts`, wired in `admin.module.ts`
 - Schema: `Vendor.deletedAt` + migration `…_vendor_soft_delete`
+
+**Vendor self-service (`/vendors`, `@Roles(VENDOR)`):**
+- `GET /vendors/me` — personal vendor details (store + latest KYC) — kept
+- `DELETE /vendors/me` — vendor closes (soft-deletes) their own account
+
+**Two-step approval (status flow):**
+Document approval and store activation are now separate, so they show as
+distinct states:
+1. `POST /admin/vendor-kyc/:id/approve` → `kyc=approved`, vendor stays `pending`
+   (documents approved, awaiting activation)
+2. `POST /admin/vendors/:id/activate` → `vendor=approved` (store live)
+
+The onboarding tracker (`GET /vendors/me/onboarding-status`) reflects both
+stages: "Admin review" = done once docs approved; "Store approved" = done only
+after activation.
 
 **Before running:** apply the migration and regenerate the client:
 `npm run prisma:deploy` (or `prisma migrate dev`) then `npm run prisma:generate`.

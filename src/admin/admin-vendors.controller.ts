@@ -16,6 +16,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums/role.enum';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { AdminVendorsService } from './admin-vendors.service';
+import { CreateVendorDto } from './dto/create-vendor.dto';
 import { ListVendorsQueryDto } from './dto/list-vendors.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 
@@ -33,6 +34,12 @@ export class AdminVendorsController {
     return this.vendors.list(query);
   }
 
+  @Post()
+  @ApiOperation({ summary: 'Create a vendor (provisions user + vendor role)' })
+  create(@Body() dto: CreateVendorDto) {
+    return this.vendors.create(dto);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Vendor detail (owner, latest KYC, product count)' })
   detail(@Param('id', ParseUUIDPipe) id: string) {
@@ -40,12 +47,24 @@ export class AdminVendorsController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update vendor fields (also approve/suspend via status)' })
+  @ApiOperation({ summary: 'Update vendor profile fields' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateVendorDto,
   ) {
     return this.vendors.update(id, dto);
+  }
+
+  @Post(':id/activate')
+  @ApiOperation({ summary: 'Activate the store (requires approved documents)' })
+  activate(@Param('id', ParseUUIDPipe) id: string) {
+    return this.vendors.activate(id);
+  }
+
+  @Post(':id/suspend')
+  @ApiOperation({ summary: 'Suspend the store' })
+  suspend(@Param('id', ParseUUIDPipe) id: string) {
+    return this.vendors.suspend(id);
   }
 
   @Delete(':id')

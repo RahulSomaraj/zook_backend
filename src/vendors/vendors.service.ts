@@ -1,27 +1,17 @@
 import {
-  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { KycStatus, VendorStatus } from '@prisma/client';
-import { StorageService } from '../storage/storage.service';
 import { PrismaService } from '../database/prisma.service';
 import { SubmitKycDto } from './dto/submit-kyc.dto';
-
-export type DocumentKind =
-  | 'trade_license'
-  | 'emirates_id_front'
-  | 'emirates_id_back';
 
 export type StepStatus = 'done' | 'active' | 'pending' | 'rejected';
 
 @Injectable()
 export class VendorsService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly storage: StorageService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /** Vendor profile for the authenticated user (store + latest KYC). */
   async getMe(userId: string) {
@@ -37,28 +27,11 @@ export class VendorsService {
       commissionRate: vendor.commissionRate,
       storeAddress: vendor.storeAddress,
       createdAt: vendor.createdAt,
+      deletedAt: vendor.deletedAt,
       kyc: latestKyc
         ? { status: latestKyc.status, submittedAt: latestKyc.createdAt }
         : null,
     };
-  }
-
-  /** Upload a single KYC document and return the stored URL. */
-  async uploadDocument(
-    userId: string,
-    kind: DocumentKind,
-    file:
-      | { buffer: Buffer; originalname: string; mimetype: string }
-      | undefined,
-  ): Promise<{ kind: DocumentKind; url: string }> {
-    if (!file) throw new BadRequestException('No file uploaded');
-    const vendor = await this.findVendorOrThrow(userId);
-    const stored = await this.storage.save(file.buffer, {
-      folder: `kyc/${vendor.id}/${kind}`,
-      filename: file.originalname || kind,
-      contentType: file.mimetype,
-    });
-    return { kind, url: stored.url };
   }
 
   /** Submit (or resubmit) KYC documents; sets the vendor's KYC to pending. */
@@ -86,6 +59,19 @@ export class VendorsService {
       },
     });
     return { id: kyc.id, status: kyc.status, submittedAt: kyc.createdAt };
+  }
+
+  /** Soft-delete (close) the authenticated vendor's own account. */
+  async deleteMe(userId: string) {
+    const vendor = await this.findVendorOrThrow(userId);
+    if (vendor.deletedAt) {
+      throw new ConflictException('Vendor account is already closed');
+    }
+    await this.prisma.vendor.update({
+      where: { id: vendor.id },
+      data: { deletedAt: new Date() },
+    });
+    return { id: vendor.id, deleted: true };
   }
 
   /** The 4-step onboarding tracker shown in the KYC screens. */

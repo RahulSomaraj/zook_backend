@@ -1,20 +1,5 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Post,
-  Query,
-  UploadedFile,
-  UseGuards,
-  UseInterceptors,
-} from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import {
-  ApiBearerAuth,
-  ApiConsumes,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -22,14 +7,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums/role.enum';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { SubmitKycDto } from './dto/submit-kyc.dto';
-import { UploadDocumentQueryDto } from './dto/upload-document.dto';
 import { VendorsService } from './vendors.service';
-
-interface UploadedDocument {
-  buffer: Buffer;
-  originalname: string;
-  mimetype: string;
-}
 
 @ApiTags('vendors')
 @ApiBearerAuth('access-token')
@@ -51,21 +29,15 @@ export class VendorsController {
     return this.vendors.onboardingStatus(user.id);
   }
 
-  @Post('me/kyc/documents')
-  @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Upload one KYC document, returns its stored URL' })
-  @UseInterceptors(FileInterceptor('file'))
-  uploadDocument(
-    @CurrentUser() user: AuthenticatedUser,
-    @Query() query: UploadDocumentQueryDto,
-    @UploadedFile() file: UploadedDocument,
-  ) {
-    return this.vendors.uploadDocument(user.id, query.kind, file);
-  }
-
   @Post('me/kyc')
   @ApiOperation({ summary: 'Submit KYC documents for review (KYC step 2)' })
   submitKyc(@CurrentUser() user: AuthenticatedUser, @Body() dto: SubmitKycDto) {
     return this.vendors.submitKyc(user.id, dto);
+  }
+
+  @Delete('me')
+  @ApiOperation({ summary: 'Close (soft-delete) the authenticated vendor account' })
+  deleteMe(@CurrentUser() user: AuthenticatedUser) {
+    return this.vendors.deleteMe(user.id);
   }
 }

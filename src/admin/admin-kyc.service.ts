@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { KycStatus, VendorStatus } from '@prisma/client';
+import { KycStatus } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 
 @Injectable()
@@ -28,25 +28,23 @@ export class AdminKycService {
     return { count: items.length, items };
   }
 
-  /** Approve a KYC submission and activate the vendor's store. */
+  /**
+   * Approve a KYC submission (documents only). This does NOT activate the
+   * vendor's store — that is a separate step (POST /admin/vendors/:id/activate),
+   * so "documents approved" and "vendor approved" are distinct, visible states.
+   */
   async approve(kycId: string, adminUserId: string) {
     const kyc = await this.getReviewableOrThrow(kycId);
 
-    await this.prisma.$transaction([
-      this.prisma.vendorKyc.update({
-        where: { id: kyc.id },
-        data: {
-          status: KycStatus.approved,
-          reviewedBy: adminUserId,
-          reviewedAt: new Date(),
-          rejectionReason: null,
-        },
-      }),
-      this.prisma.vendor.update({
-        where: { id: kyc.vendorId },
-        data: { status: VendorStatus.approved },
-      }),
-    ]);
+    await this.prisma.vendorKyc.update({
+      where: { id: kyc.id },
+      data: {
+        status: KycStatus.approved,
+        reviewedBy: adminUserId,
+        reviewedAt: new Date(),
+        rejectionReason: null,
+      },
+    });
 
     return { id: kyc.id, status: KycStatus.approved };
   }

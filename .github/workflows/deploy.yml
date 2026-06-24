@@ -45,7 +45,7 @@ jobs:
             git reset --hard "origin/$BRANCH"
 
             echo ">>> Installing dependencies"
-            npm ci
+            npm install --legacy-peer-deps
 
             echo ">>> Prisma generate + migrate deploy"
             npx prisma generate
