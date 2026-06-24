@@ -21,6 +21,33 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Check required secrets are present
+        env:
+          AZURE_HOST: ${{ secrets.AZURE_HOST }}
+          AZURE_USER: ${{ secrets.AZURE_USER }}
+          AZURE_SSH_KEY: ${{ secrets.AZURE_SSH_KEY }}
+          AZURE_DEPLOY_PATH: ${{ secrets.AZURE_DEPLOY_PATH }}
+          AZURE_SSH_PORT: ${{ secrets.AZURE_SSH_PORT }}
+        run: |
+          missing=0
+          check() {
+            if [ -z "$2" ]; then
+              echo "❌ $1 is EMPTY / not available to this job"
+              missing=1
+            else
+              echo "✅ $1 is set (length: ${#2})"
+            fi
+          }
+          check AZURE_HOST "$AZURE_HOST"
+          check AZURE_USER "$AZURE_USER"
+          check AZURE_SSH_KEY "$AZURE_SSH_KEY"
+          check AZURE_DEPLOY_PATH "$AZURE_DEPLOY_PATH"
+          echo "AZURE_SSH_PORT (optional): ${AZURE_SSH_PORT:-<unset, defaults to 22>}"
+          if [ "$missing" = "1" ]; then
+            echo "::error::One or more required secrets are missing/empty for this job."
+            exit 1
+          fi
+
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
