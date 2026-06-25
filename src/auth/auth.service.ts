@@ -49,8 +49,10 @@ export class AuthService {
   }
 
   /**
-   * Exchange a valid refresh token for a fresh token pair (rotation).
-   * Re-checks that the user is still an active admin at refresh time.
+   * Exchange a valid refresh token for a fresh token pair (rotation). Common to
+   * every user type (admin, vendor, customer, …): the token's `sub` identifies
+   * the user, and we re-issue based on whatever roles they currently hold, after
+   * re-checking each role's status guard.
    */
   async refresh(refreshToken: string): Promise<AuthTokensDto> {
     let userId: string;
@@ -65,7 +67,11 @@ export class AuthService {
     return this.toResponse(result);
   }
 
-  /** Loads a user, asserts active-admin, and signs a token pair. */
+  /**
+   * Loads a user, re-validates any role-specific status guards, and signs a
+   * fresh token pair. Role-agnostic so a single refresh endpoint serves every
+   * user type; a user holding several roles must pass every relevant guard.
+   */
   private async issueFor(userId: string): Promise<{
     tokens: AuthTokens;
     user: {
@@ -78,21 +84,27 @@ export class AuthService {
   }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { userRoles: true, admin: true },
+      include: { userRoles: true, admin: true, vendor: true },
     });
 
-    const isAdmin = user?.userRoles.some((r) => r.role === DbRole.admin);
-    if (
-      !user ||
-      !isAdmin ||
-      !user.admin ||
-      (user.admin.status as string) !== 'active'
-    ) {
-      throw new ForbiddenException('Admin account is no longer active');
+    if (!user) {
+      throw new UnauthorizedException('Account no longer exists');
     }
 
     const roles = user.userRoles.map((r) => r.role as Role);
-    const adminLevel = user.admin.level as string;
+
+    // Per-role status guards: block refresh if an active role's profile is
+    // disabled, even though the JWT itself is still valid.
+    if (roles.includes(Role.ADMIN)) {
+      if (!user.admin || (user.admin.status as string) !== 'active') {
+        throw new ForbiddenException('Admin account is no longer active');
+      }
+    }
+    if (roles.includes(Role.VENDOR) && user.vendor?.deletedAt) {
+      throw new ForbiddenException('Vendor account is closed');
+    }
+
+    const adminLevel = (user.admin?.level as string) ?? null;
 
     const tokens = await this.tokens.issueTokens({
       id: user.id,
