@@ -16,6 +16,9 @@ export class AuthUserDto {
 
   @ApiProperty({ example: 'super_admin', nullable: true })
   adminLevel!: string | null;
+
+  @ApiProperty({ nullable: true, description: 'Vendor-only. true = onboarding complete, null for non-vendors.' })
+  isVerified!: boolean | null;
 }
 
 export class AuthTokensDto {

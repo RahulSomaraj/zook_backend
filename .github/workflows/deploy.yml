@@ -63,6 +63,18 @@ jobs:
           script: |
             set -euo pipefail
 
+            # appleboy/ssh-action runs a NON-interactive shell that does not read
+            # ~/.bashrc or ~/.profile, so nvm-managed node/npm/npx/pm2 are not on
+            # PATH. Load nvm explicitly (wrapped to tolerate `set -u`). If node is
+            # installed another way, also add common global bin dirs as fallbacks.
+            export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+            set +u
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            set -u
+            export PATH="$PATH:/usr/local/bin:/usr/bin:$HOME/.npm-global/bin"
+
+            echo ">>> Using node: $(command -v node || echo 'NOT FOUND')  npm: $(command -v npm || echo 'NOT FOUND')"
+
             BRANCH="${{ github.event.inputs.branch || 'develop' }}"
             DEPLOY_PATH="${{ secrets.AZURE_DEPLOY_PATH }}"
             PM2_APP_NAME="zook-backend"

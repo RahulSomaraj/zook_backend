@@ -65,7 +65,7 @@ export class VendorAuthService {
 
     const user = await this.prisma.user.findFirst({
       where: { phone },
-      include: { userRoles: true, admin: true },
+      include: { userRoles: true, admin: true, vendor: true },
     });
 
     if (user) {
@@ -76,6 +76,9 @@ export class VendorAuthService {
         });
       }
       const roles = user.userRoles.map((r) => r.role as Role);
+      const isVerified = user.vendor
+        ? user.vendor.status === VendorStatus.approved
+        : null;
       const tokens = await this.tokens.issueTokens({
         id: user.id,
         email: user.email,
@@ -90,6 +93,7 @@ export class VendorAuthService {
           fullName: user.fullName,
           roles,
           adminLevel: user.admin?.level ?? null,
+          isVerified,
         }),
       };
     }
@@ -146,6 +150,7 @@ export class VendorAuthService {
       fullName: user.fullName,
       roles: [Role.VENDOR],
       adminLevel: null,
+      isVerified: false,
     });
   }
 
@@ -187,6 +192,7 @@ export class VendorAuthService {
       fullName: string | null;
       roles: Role[];
       adminLevel: string | null;
+      isVerified: boolean | null;
     },
   ): AuthTokensDto {
     return {

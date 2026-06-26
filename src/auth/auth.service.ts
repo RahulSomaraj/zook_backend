@@ -103,6 +103,7 @@ export class AuthService {
       fullName: string | null;
       roles: Role[];
       adminLevel: string | null;
+      isVerified: boolean | null;
     };
   }> {
     const user = await this.prisma.user.findUnique({
@@ -128,6 +129,9 @@ export class AuthService {
     }
 
     const adminLevel = (user.admin?.level as string) ?? null;
+    const isVerified = roles.includes(Role.VENDOR)
+      ? (user.vendor?.status as string) === 'approved'
+      : null;
 
     const tokens = await this.tokens.issueTokens({
       id: user.id,
@@ -144,6 +148,7 @@ export class AuthService {
         fullName: user.fullName,
         roles,
         adminLevel,
+        isVerified,
       },
     };
   }
@@ -156,6 +161,7 @@ export class AuthService {
       fullName: string | null;
       roles: Role[];
       adminLevel: string | null;
+      isVerified: boolean | null;
     };
   }): AuthTokensDto {
     return {
