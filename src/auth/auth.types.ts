@@ -14,6 +14,7 @@ export interface AccessTokenPayload {
 /** Claims carried by the refresh token — intentionally minimal. */
 export interface RefreshTokenPayload {
   sub: string; // user id
+  jti: string; // unique token id — used for DB-side revocation
   type: 'refresh';
 }
 

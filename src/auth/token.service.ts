@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
+import { randomUUID } from 'crypto';
+import { PrismaService } from '../database/prisma.service';
 import { Role } from '../common/enums/role.enum';
 import { AccessTokenPayload, RefreshTokenPayload } from './auth.types';
 
@@ -17,14 +19,6 @@ interface TokenSubject {
   adminLevel: string | null;
 }
 
-/**
- * Signs and verifies the app's own access + refresh JWTs.
- *
- * Both tokens are signed with JWT_SECRET (HS256) and carry a `type` claim so an
- * access token can never be replayed where a refresh token is expected, and
- * vice versa. Refresh is stateless (no server-side store) - rotation happens by
- * issuing a fresh pair on every /auth/refresh call.
- */
 @Injectable()
 export class TokenService {
   private readonly secret: string;
@@ -33,6 +27,7 @@ export class TokenService {
 
   constructor(
     private readonly jwt: JwtService,
+    private readonly prisma: PrismaService,
     config: ConfigService,
   ) {
     this.secret = config.get<string>('jwt.secret')!;
@@ -41,6 +36,8 @@ export class TokenService {
   }
 
   async issueTokens(user: TokenSubject): Promise<AuthTokens> {
+    const jti = randomUUID();
+
     const accessPayload: AccessTokenPayload = {
       sub: user.id,
       email: user.email,
@@ -50,6 +47,7 @@ export class TokenService {
     };
     const refreshPayload: RefreshTokenPayload = {
       sub: user.id,
+      jti,
       type: 'refresh',
     };
 
@@ -58,6 +56,13 @@ export class TokenService {
       this.jwt.signAsync(refreshPayload, this.signOptions(this.refreshTtl)),
     ]);
 
+    const expiresAt = new Date(
+      Date.now() + this.ttlToSeconds(this.refreshTtl) * 1000,
+    );
+    await this.prisma.refreshToken.create({
+      data: { jti, userId: user.id, expiresAt },
+    });
+
     return {
       accessToken,
       refreshToken,
@@ -65,7 +70,7 @@ export class TokenService {
     };
   }
 
-  /** Verifies a refresh token and asserts its `type`. Throws if invalid/expired. */
+  /** Verifies a refresh token signature + type, and returns its payload. */
   async verifyRefreshToken(token: string): Promise<RefreshTokenPayload> {
     const payload = await this.jwt.verifyAsync<RefreshTokenPayload>(token, {
       secret: this.secret,
@@ -76,11 +81,32 @@ export class TokenService {
     return payload;
   }
 
-  private signOptions(expiresIn: string): JwtSignOptions {
-    return {
-      secret: this.secret,
-      expiresIn: expiresIn as JwtSignOptions['expiresIn'],
-    };
+  /** Returns true only if the jti exists in DB, is not revoked, and has not expired. */
+  async isRefreshTokenValid(jti: string): Promise<boolean> {
+    const record = await this.prisma.refreshToken.findUnique({
+      where: { jti },
+      select: { revokedAt: true, expiresAt: true },
+    });
+    if (!record || record.revokedAt || record.expiresAt < new Date()) {
+      return false;
+    }
+    return true;
+  }
+
+  /** Marks a single refresh token as revoked. No-op if already revoked. */
+  async revokeRefreshToken(jti: string): Promise<void> {
+    await this.prisma.refreshToken.updateMany({
+      where: { jti, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  /** Revokes every active refresh token for a user (logout from all devices). */
+  async revokeAllRefreshTokens(userId: string): Promise<void> {
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 
   /** Short-lived token proving the holder verified ownership of `phone`. */
@@ -103,7 +129,13 @@ export class TokenService {
     return { phone: payload.phone };
   }
 
-  /** Converts a jsonwebtoken-style ttl ("15m", "30d", "900") to seconds. */
+  private signOptions(expiresIn: string): JwtSignOptions {
+    return {
+      secret: this.secret,
+      expiresIn: expiresIn as JwtSignOptions['expiresIn'],
+    };
+  }
+
   private ttlToSeconds(ttl: string): number {
     const match = /^(\d+)([smhd])?$/.exec(ttl.trim());
     if (!match) return 0;

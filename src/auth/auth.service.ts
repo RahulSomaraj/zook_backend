@@ -49,22 +49,45 @@ export class AuthService {
   }
 
   /**
-   * Exchange a valid refresh token for a fresh token pair (rotation). Common to
-   * every user type (admin, vendor, customer, …): the token's `sub` identifies
-   * the user, and we re-issue based on whatever roles they currently hold, after
-   * re-checking each role's status guard.
+   * Exchange a valid refresh token for a fresh token pair (rotation). The old
+   * refresh token's jti is revoked in DB so it cannot be reused.
    */
   async refresh(refreshToken: string): Promise<AuthTokensDto> {
     let userId: string;
+    let jti: string;
     try {
       const payload = await this.tokens.verifyRefreshToken(refreshToken);
       userId = payload.sub;
+      jti = payload.jti;
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
+    const valid = await this.tokens.isRefreshTokenValid(jti);
+    if (!valid) {
+      throw new UnauthorizedException('Refresh token has been revoked');
+    }
+
+    // Revoke old token before issuing new pair (rotation).
+    await this.tokens.revokeRefreshToken(jti);
+
     const result = await this.issueFor(userId);
     return this.toResponse(result);
+  }
+
+  /** Revoke the supplied refresh token, ending the current session. */
+  async logout(refreshToken: string): Promise<void> {
+    try {
+      const payload = await this.tokens.verifyRefreshToken(refreshToken);
+      await this.tokens.revokeRefreshToken(payload.jti);
+    } catch {
+      // Expired or invalid token — session is already dead; treat as success.
+    }
+  }
+
+  /** Revoke all refresh tokens for a user, logging out every device. */
+  async logoutAll(userId: string): Promise<void> {
+    await this.tokens.revokeAllRefreshTokens(userId);
   }
 
   /**

@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zook — Vendor App · Listings</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--primary:#FF4500;--primary-d:#CC3700;--primary-l:#FF6B35;--primary-p:#FFF0EB;--black:#0A0A0A;--charcoal:#333;--mid:#666;--light:#999;--border:#EBEBEB;--surface:#F7F7F5;--white:#FFF;--success:#22C55E;--success-p:#F0FDF4;--warning:#F59E0B;--warning-p:#FFFBEB;--error:#EF4444;--error-p:#FEF2F2;--info:#3B82F6;--info-p:#EFF6FF;--font:'Manrope',sans-serif;--font-brand:'Montserrat',sans-serif;--radius-sm:8px;--radius-md:14px;--radius-lg:20px;--radius-full:9999px;}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:var(--font);background:#0D0D0D;min-height:100vh;display:flex;flex-wrap:wrap;gap:24px;padding:36px;justify-content:center;align-items:flex-start;-webkit-font-smoothing:antialiased;}
+.phone{width:390px;border-radius:48px;border:10px solid #1C1C1C;background:var(--surface);overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,0.05),0 40px 80px rgba(0,0,0,0.7);flex-shrink:0;display:flex;flex-direction:column;}
+.phone-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;}
+.phone-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:rgba(255,255,255,0.2);}
+.dynamic-island{width:120px;height:34px;background:#000;border-radius:20px;margin:12px auto 0;flex-shrink:0;}
+.home-bar{height:22px;display:flex;align-items:center;justify-content:center;background:var(--white);flex-shrink:0;}
+.home-indicator{width:134px;height:5px;background:#DADADA;border-radius:var(--radius-full);}
+.status-bar{display:flex;align-items:center;justify-content:space-between;padding:6px 24px 0;flex-shrink:0;background:var(--black);}
+.sb-time{font-size:15px;font-weight:800;color:white;letter-spacing:-0.3px;}
+.screen{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:680px;}
+.scrollable{flex:1;overflow-y:auto;}
+.scrollable::-webkit-scrollbar{display:none;}
+
+/* Header */
+.screen-header{background:var(--black);padding:14px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.sh-back{font-size:20px;cursor:pointer;color:rgba(255,255,255,0.5);}
+.sh-title{font-size:15px;font-weight:800;color:white;}
+.sh-action{margin-left:auto;background:var(--primary);color:white;border:none;border-radius:var(--radius-full);padding:7px 14px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;}
+
+/* Progress bar */
+.progress-bar{height:4px;background:var(--border);flex-shrink:0;}
+.progress-fill{height:100%;background:var(--primary);transition:width 0.3s;}
+
+/* Step indicator */
+.step-indicator{padding:12px 16px;background:var(--white);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:0;flex-shrink:0;}
+.si-step{display:flex;align-items:center;gap:5px;flex:1;}
+.si-dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;}
+.si-done{background:var(--success);color:white;}
+.si-active{background:var(--primary);color:white;}
+.si-pending{background:var(--border);color:var(--light);}
+.si-label{font-size:10px;font-weight:700;white-space:nowrap;}
+.si-step .si-active + .si-label{color:var(--primary);}
+.si-step .si-done + .si-label{color:var(--charcoal);}
+.si-step .si-pending + .si-label{color:var(--light);}
+.si-line{flex:1;height:2px;background:var(--border);margin:0 4px;}
+.si-line.done{background:var(--success);}
+
+/* Forms */
+.form-pad{padding:16px;}
+.field{margin-bottom:16px;}
+.field-label{display:block;font-size:12px;font-weight:700;color:var(--charcoal);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.05em;}
+.field-hint{font-size:11px;color:var(--light);margin-bottom:6px;line-height:1.5;}
+.zook-input{width:100%;padding:12px 14px;font-family:var(--font);font-size:14px;color:var(--charcoal);background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-md);outline:none;transition:all 0.15s;}
+.zook-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(255,69,0,0.08);}
+.zook-input::placeholder{color:var(--light);}
+.zook-select{width:100%;padding:12px 34px 12px 14px;font-family:var(--font);font-size:14px;color:var(--charcoal);background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-md);outline:none;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;}
+.zook-textarea{width:100%;padding:12px 14px;font-family:var(--font);font-size:14px;color:var(--charcoal);background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-md);outline:none;resize:none;min-height:80px;line-height:1.6;transition:all 0.15s;}
+.zook-textarea:focus{border-color:var(--primary);}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+/* Catalog search result */
+.catalog-result{display:flex;align-items:center;gap:12px;background:var(--success-p);border:1.5px solid rgba(34,197,94,0.25);border-radius:var(--radius-md);padding:12px 14px;margin-bottom:14px;}
+.cr-thumb{width:44px;height:44px;background:var(--white);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;border:1px solid var(--border);flex-shrink:0;}
+.cr-name{font-size:13px;font-weight:800;color:var(--black);}
+.cr-meta{font-size:11px;color:var(--mid);margin-top:2px;}
+.cr-badge{margin-left:auto;font-size:10px;font-weight:700;background:var(--success);color:white;padding:3px 8px;border-radius:var(--radius-full);}
+
+/* Grade selector */
+.grade-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.grade-opt{border:2px solid var(--border);border-radius:var(--radius-md);padding:10px 6px;text-align:center;cursor:pointer;transition:all 0.15s;}
+.grade-opt.sel-b{border-color:var(--warning);background:var(--warning-p);}
+.grade-icon{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--font-brand);font-weight:900;font-size:14px;color:white;margin:0 auto 6px;}
+.gi-a{background:var(--success);}
+.gi-b{background:var(--warning);}
+.gi-c{background:#94A3B8;}
+.gi-d{background:var(--error);}
+.grade-name{font-size:10px;font-weight:700;color:var(--mid);}
+.grade-opt.sel-b .grade-name{color:#B45309;}
+
+/* Camera upload grid */
+.camera-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.cam-slot{aspect-ratio:1;border-radius:var(--radius-md);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;transition:all 0.15s;}
+.cam-empty{border:2px dashed var(--border);background:var(--white);}
+.cam-empty:hover{border-color:var(--primary);background:var(--primary-p);}
+.cam-filled{border:2px solid var(--success);position:relative;}
+.cam-filled-1{background:linear-gradient(135deg,#FFF0EB,#FFD4C2);}
+.cam-filled-2{background:linear-gradient(135deg,#F0F4FF,#D4E0FF);}
+.cam-filled-3{background:linear-gradient(135deg,#F0FDF4,#BBF7D0);}
+.cam-tick{position:absolute;top:4px;right:4px;width:16px;height:16px;background:var(--success);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:white;}
+.cam-label{font-size:9px;font-weight:700;text-align:center;}
+.cam-note{background:var(--info-p);border:1px solid rgba(59,130,246,0.15);border-radius:var(--radius-sm);padding:9px 12px;font-size:11px;color:#1D4ED8;line-height:1.5;margin-top:10px;}
+
+/* Price input */
+.price-row{display:flex;align-items:center;border:1.5px solid var(--primary);border-radius:var(--radius-md);overflow:hidden;box-shadow:0 0 0 3px rgba(255,69,0,0.08);}
+.price-cur{padding:0 14px;font-size:14px;font-weight:800;color:var(--mid);background:var(--surface);height:48px;display:flex;align-items:center;border-right:1.5px solid var(--border);}
+.price-input{flex:1;padding:0 14px;font-family:var(--font);font-size:22px;font-weight:800;color:var(--black);border:none;outline:none;height:48px;}
+
+/* Payout live calc */
+.payout-live{background:var(--black);border-radius:var(--radius-md);padding:14px;}
+.pl-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:rgba(255,255,255,0.3);margin-bottom:10px;}
+.pl-row{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;}
+.pl-key{color:rgba(255,255,255,0.4);}
+.pl-val{font-weight:700;color:rgba(255,255,255,0.7);}
+.pl-total{font-size:18px;font-weight:800;color:var(--primary-l);}
+
+/* Qty stepper */
+.qty-row{display:flex;align-items:center;gap:14px;}
+.qty-btn{width:36px;height:36px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;cursor:pointer;color:var(--charcoal);}
+.qty-num{font-size:20px;font-weight:800;color:var(--black);min-width:28px;text-align:center;}
+
+/* Review listing preview */
+.review-preview{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:14px;}
+.rp-img{height:150px;display:flex;align-items:center;justify-content:center;position:relative;}
+.rp-img-1{background:linear-gradient(135deg,#FFF0EB,#FFD4C2);}
+.rp-verified{position:absolute;top:8px;left:8px;background:var(--success);color:white;font-size:9px;font-weight:800;padding:3px 7px;border-radius:var(--radius-full);}
+.rp-official{position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.55);color:rgba(255,255,255,0.7);font-size:9px;font-weight:600;padding:3px 8px;border-radius:var(--radius-full);}
+.rp-body{padding:12px 14px;}
+.rp-brand{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--light);margin-bottom:2px;}
+.rp-title{font-size:15px;font-weight:800;color:var(--black);margin-bottom:6px;}
+.rp-footer{display:flex;align-items:center;justify-content:space-between;}
+.rp-price{font-size:18px;font-weight:800;color:var(--black);}
+.rp-grade{width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-family:var(--font-brand);font-weight:900;font-size:11px;color:white;background:var(--warning);}
+
+/* Bottom CTA */
+.bottom-cta{padding:12px 14px;background:var(--white);border-top:1px solid var(--border);flex-shrink:0;}
+.cta-primary{width:100%;background:var(--primary);color:white;border:none;border-radius:var(--radius-full);padding:15px;font-family:var(--font);font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(255,69,0,0.25);}
+.cta-row{display:flex;gap:8px;}
+.cta-secondary{flex:1;background:var(--white);color:var(--mid);border:1.5px solid var(--border);border-radius:var(--radius-full);padding:13px;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;}
+
+/* Listings list items */
+.listing-item{background:var(--white);margin:0 14px 10px;border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;}
+.li-thumb{width:52px;height:52px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;border:1px solid var(--border);flex-shrink:0;}
+.li-thumb-1{background:linear-gradient(135deg,#FFF0EB,#FFD4C2);}
+.li-thumb-2{background:linear-gradient(135deg,#F5F3FF,#DDD6FE);}
+.li-thumb-3{background:linear-gradient(135deg,#F0FDF4,#BBF7D0);}
+.li-thumb-4{background:linear-gradient(135deg,#EFF6FF,#BFDBFE);}
+.li-thumb-5{background:linear-gradient(135deg,#FFFBEB,#FDE68A);}
+.li-info{flex:1;}
+.li-name{font-size:13px;font-weight:700;color:var(--black);margin-bottom:3px;}
+.li-meta{font-size:11px;color:var(--light);}
+.li-right{text-align:right;}
+.li-price{font-size:14px;font-weight:800;color:var(--black);}
+.li-status{font-size:10px;font-weight:700;margin-top:3px;}
+.li-active{color:var(--success);}
+.li-paused{color:var(--light);}
+.li-low{color:var(--warning);}
+
+/* Tab bar */
+.tab-bar{display:flex;background:var(--white);border-top:1px solid var(--border);flex-shrink:0;}
+.tab-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 0;gap:4px;cursor:pointer;position:relative;}
+.tab-item.active::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:36px;height:3px;background:var(--primary);border-radius:0 0 var(--radius-full) var(--radius-full);}
+.tab-label{font-size:10px;font-weight:600;color:var(--light);}
+.tab-item.active .tab-label{color:var(--primary);}
+</style>
+</head>
+<body>
+
+<!-- ══ MY LISTINGS ══ -->
+<div class="phone-wrap">
+<div class="phone" style="background:var(--surface);">
+  <div class="dynamic-island"></div>
+  <div class="status-bar"><span class="sb-time">9:41</span><div></div></div>
+  <div class="screen">
+    <div class="screen-header">
+      <span class="sh-title">My Listings</span>
+      <button class="sh-action">+ Add listing</button>
+    </div>
+    <!-- Filter tabs -->
+    <div style="display:flex;gap:6px;padding:10px 14px;background:var(--white);border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0;">
+      <div style="padding:6px 14px;background:var(--primary);color:white;border-radius:var(--radius-full);font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">All (37)</div>
+      <div style="padding:6px 14px;background:var(--white);border:1.5px solid var(--border);color:var(--mid);border-radius:var(--radius-full);font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">Live (31)</div>
+      <div style="padding:6px 14px;background:var(--white);border:1.5px solid var(--border);color:var(--mid);border-radius:var(--radius-full);font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">Paused (4)</div>
+      <div style="padding:6px 14px;background:var(--warning-p);border:1.5px solid rgba(245,158,11,0.3);color:#B45309;border-radius:var(--radius-full);font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">Low stock (2)</div>
+    </div>
+    <div class="scrollable">
+      <div style="height:10px;"></div>
+      <div class="listing-item">
+        <div class="li-thumb li-thumb-1"><svg width="22" height="36" viewBox="0 0 60 100"><rect x="4" y="2" width="52" height="96" rx="10" fill="white" fill-opacity=".8" stroke="rgba(0,0,0,.08)" stroke-width="2"/><rect x="10" y="12" width="40" height="68" rx="4" fill="rgba(0,0,0,.06)"/></svg></div>
+        <div class="li-info"><div class="li-name">iPhone 14 Pro 256GB</div><div class="li-meta">Deep Purple · Grade B · Qty: 2</div></div>
+        <div class="li-right"><div class="li-price">AED 2,100</div><div class="li-status li-active">● Live</div></div>
+      </div>
+      <div class="listing-item">
+        <div class="li-thumb li-thumb-2"><svg width="30" height="24" viewBox="0 0 100 80"><rect x="10" y="20" width="80" height="45" rx="22" fill="white" fill-opacity=".7" stroke="rgba(0,0,0,.07)" stroke-width="2"/></svg></div>
+        <div class="li-info"><div class="li-name">PlayStation 5 Console</div><div class="li-meta">Standard · Grade A · Qty: 1</div></div>
+        <div class="li-right"><div class="li-price">AED 1,800</div><div class="li-status li-low">⚠ Low stock</div></div>
+      </div>
+      <div class="listing-item">
+        <div class="li-thumb li-thumb-3"><svg width="36" height="26" viewBox="0 0 100 72"><rect x="14" y="8" width="72" height="48" rx="5" fill="white" fill-opacity=".75" stroke="rgba(0,0,0,.08)" stroke-width="2"/><rect x="2" y="58" width="96" height="6" rx="3" fill="white" fill-opacity=".5"/></svg></div>
+        <div class="li-info"><div class="li-name">MacBook Air M2 256GB</div><div class="li-meta">Space Gray · Grade B · Qty: 3</div></div>
+        <div class="li-right"><div class="li-price">AED 3,200</div><div class="li-status li-active">● Live</div></div>
+      </div>
+      <div class="listing-item">
+        <div class="li-thumb li-thumb-4"><svg width="36" height="28" viewBox="0 0 90 70"><path d="M55 14H35L28 22H10a6 6 0 0 0-6 6v28a6 6 0 0 0 6 6h70a6 6 0 0 0 6-6V28a6 6 0 0 0-6-6H62L55 14z" fill="white" fill-opacity=".75" stroke="rgba(0,0,0,.08)" stroke-width="2"/><circle cx="45" cy="40" r="9" fill="rgba(59,130,246,.12)"/></svg></div>
+        <div class="li-info"><div class="li-name">Sony Alpha A7 IV Body</div><div class="li-meta">Grade B · Qty: 1</div></div>
+        <div class="li-right"><div class="li-price">AED 6,200</div><div class="li-status li-active">● Live</div></div>
+      </div>
+      <div class="listing-item" style="opacity:0.65;">
+        <div class="li-thumb li-thumb-5"><svg width="20" height="28" viewBox="0 0 60 80"><rect x="8" y="18" width="44" height="44" rx="14" fill="white" fill-opacity=".8" stroke="rgba(0,0,0,.07)" stroke-width="2"/></svg></div>
+        <div class="li-info"><div class="li-name">Apple Watch Series 9</div><div class="li-meta">45mm GPS · Grade B · Qty: 0</div></div>
+        <div class="li-right"><div class="li-price">AED 750</div><div class="li-status li-paused">⏸ Paused</div></div>
+      </div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab-item"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#BBB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span class="tab-label">Home</span></div>
+      <div class="tab-item"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#BBB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg><span class="tab-label">Orders</span></div>
+      <div class="tab-item active"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg><span class="tab-label" style="color:var(--primary);">Listings</span></div>
+      <div class="tab-item"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#BBB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg><span class="tab-label">Payouts</span></div>
+      <div class="tab-item"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#BBB" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="tab-label">Store</span></div>
+    </div>
+  </div>
+  <div class="home-bar"><div class="home-indicator"></div></div>
+</div>
+<div class="phone-label">8 · My Listings</div>
+</div>
+
+<!-- ══ ADD LISTING STEP 1 — Catalog + Condition ══ -->
+<div class="phone-wrap">
+<div class="phone" style="background:var(--surface);">
+  <div class="dynamic-island"></div>
+  <div class="status-bar"><span class="sb-time">9:41</span><div></div></div>
+  <div class="screen">
+    <div class="screen-header"><span class="sh-back">←</span><span class="sh-title">Add Listing</span><span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,0.35);">Step 1 of 4</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:25%;"></div></div>
+    <div class="step-indicator">
+      <div class="si-step"><div class="si-dot si-active">1</div><span class="si-label" style="color:var(--primary);">Item</span></div>
+      <div class="si-line"></div>
+      <div class="si-step"><div class="si-dot si-pending">2</div><span class="si-label" style="color:var(--light);">Photos</span></div>
+      <div class="si-line"></div>
+      <div class="si-step"><div class="si-dot si-pending">3</div><span class="si-label" style="color:var(--light);">Price</span></div>
+      <div class="si-line"></div>
+      <div class="si-step"><div class="si-dot si-pending">4</div><span class="si-label" style="color:var(--light);">Review</span></div>
+    </div>
+    <div class="scrollable">
+      <div class="form-pad">
+        <div class="field">
+          <label class="field-label">Search catalog</label>
+          <div style="position:relative;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--light)" stroke-width="2" stroke-linecap="round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input class="zook-input" style="padding-left:38px;" placeholder="Brand or model name…" value="iPhone 14 Pro">
+          </div>
+        </div>
+        <!-- Catalog match -->
+        <div class="catalog-result">
+          <div class="cr-thumb"><svg width="22" height="36" viewBox="0 0 60 100"><rect x="4" y="2" width="52" height="96" rx="10" fill="white" fill-opacity=".8" stroke="rgba(0,0,0,.08)" stroke-width="2"/><rect x="10" y="12" width="40" height="68" rx="4" fill="rgba(0,0,0,.06)"/></svg></div>
+          <div><div class="cr-name">iPhone 14 Pro</div><div class="cr-meta">Apple · 2022 · A16 Bionic</div></div>
+          <div class="cr-badge">✓ Matched</div>
+        </div>
+        <div class="two-col">
+          <div class="field" style="margin-bottom:0;">
+            <label class="field-label">Storage</label>
+            <select class="zook-select"><option>256GB</option><option>128GB</option><option>512GB</option><option>1TB</option></select>
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label class="field-label">Colour</label>
+            <select class="zook-select"><option>Deep Purple</option><option>Gold</option><option>Silver</option><option>Space Black</option></select>
+          </div>
+        </div>
+        <div style="height:16px;"></div>
+        <div class="field">
+          <label class="field-label">Condition grade</label>
+          <div class="field-hint">Be honest — affects buyer trust and listing visibility</div>
+          <div class="grade-grid">
+            <div class="grade-opt"><div class="grade-icon gi-a">A</div><div class="grade-name">Like New</div></div>
+            <div class="grade-opt sel-b"><div class="grade-icon gi-b">B</div><div class="grade-name">Good</div></div>
+            <div class="grade-opt"><div class="grade-icon gi-c">C</div><div class="grade-name">Fair</div></div>
+            <div class="grade-opt"><div class="grade-icon gi-d">D</div><div class="grade-name">Poor</div></div>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">Description</label>
+          <textarea class="zook-textarea" placeholder="Describe condition, what's included, any defects…"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-cta"><button class="cta-primary">Next: Take Photos →</button></div>
+  </div>
+  <div class="home-bar"><div class="home-indicator"></div></div>
+</div>
+<div class="phone-label">9 · Add Listing Step 1</div>
+</div>
+
+<!-- ══ ADD LISTING STEP 2 — Photos (camera) ══ -->
+<div class="phone-wrap">
+<div class="phone" style="background:var(--surface);">
+  <div class="dynamic-island"></div>
+  <div class="status-bar"><span class="sb-time">9:41</span><div></div></div>
+  <div class="screen">
+    <div class="screen-header"><span class="sh-back">←</span><span class="sh-title">Product Photos</span><span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,0.35);">Step 2 of 4</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:50%;"></div></div>
+    <div class="step-indicator">
+      <div class="si-step"><div class="si-dot si-done">✓</div><span class="si-label" style="color:var(--charcoal);">Item</span></div>
+      <div class="si-line done"></div>
+      <div class="si-step"><div class="si-dot si-active">2</div><span class="si-label" style="color:var(--primary);">Photos</span></div>
+      <div class="si-line"></div>
+      <div class="si-step"><div class="si-dot si-pending">3</div><span class="si-label" style="color:var(--light);">Price</span></div>
+      <div class="si-line"></div>
+      <div class="si-step"><div class="si-dot si-pending">4</div><span class="si-label" style="color:var(--light);">Review</span></div>
+    </div>
+    <div class="scrollable">
+      <div class="form-pad">
+        <div style="font-size:14px;font-weight:700;color:var(--black);margin-bottom:4px;">Your product photos</div>
+        <div style="font-size:12px;color:var(--mid);margin-bottom:14px;line-height:1.5;">These are YOUR real photos showing the actual item's condition. The official catalog photo is used as the hero image automatically.</div>
+        <div class="camera-grid">
+          <div class="cam-slot cam-filled cam-filled-1">
+            <svg width="28" height="44" viewBox="0 0 60 100"><rect x="4" y="2" width="52" height="96" rx="10" fill="white" fill-opacity=".7" stroke="rgba(0,0,0,.08)" stroke-width="2"/><rect x="10" y="12" width="40" height="68" rx="4" fill="rgba(0,0,0,.06)"/></svg>
+            <div class="cam-tick">✓</div>
+            <div class="cam-label" style="color:var(--success);">Front</div>
+          </div>
+          <div class="cam-slot cam-filled cam-filled-2">
+            <svg width="28" height="44" viewBox="0 0 60 100"><rect x="4" y="2" width="52" height="96" rx="10" fill="white" fill-opacity=".7" stroke="rgba(0,0,0,.08)" stroke-width="2"/></svg>
+            <div class="cam-tick">✓</div>
+            <div class="cam-label" style="color:var(--success);">Back</div>
+          </div>
+          <div class="cam-slot cam-filled cam-filled-3">
+            <svg width="28" height="44" viewBox="0 0 60 100"><rect x="4" y="2" width="52" height="96" rx="10" fill="white" fill-opacity=".7" stroke="rgba(0,0,0,.08)" stroke-width="2"/></svg>
+            <div class="cam-tick">✓</div>
+            <div class="cam-label" style="color:var(--success);">Box</div>
+          </div>
+          <div class="cam-slot cam-empty">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--light)" stroke-width="2" stroke-linecap="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+            <div class="cam-label">Add photo</div>
+          </div>
+          <div class="cam-slot cam-empty">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--light)" stroke-width="2" stroke-linecap="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+            <div class="cam-label">Add photo</div>
+          </div>
+          <div class="cam-slot cam-empty">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--light)" stroke-width="2" stroke-linecap="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+            <div class="cam-label">Add photo</div>
+          </div>
+        </div>
+        <div class="cam-note">
+          📱 <strong>Camera only</strong> — tap any slot to open your camera and take a photo on the spot. Min 3 photos required. Gallery upload is disabled.
+        </div>
+        <div style="margin-top:12px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11px;color:var(--mid);line-height:1.6;">
+          💡 The <strong>official Apple stock photo</strong> is automatically used as the hero image on your listing — buyers see that first. Your photos appear in the condition section below it.
+        </div>
+      </div>
+    </div>
+    <div class="bottom-cta">
+      <div class="cta-row">
+        <button class="cta-secondary">← Back</button>
+        <button class="cta-primary" style="flex:2;">Next: Set Price →</button>
+      </div>
+    </div>
+  </div>
+  <div class="home-bar"><div class="home-indicator"></div></div>
+</div>
+<div class="phone-label">10 · Add Listing Step 2</div>
+</div>
+
+<!-- ══ ADD LISTING STEP 3 — Price & Stock ══ -->
+<div class="phone-wrap">
+<div class="phone" style="background:var(--surface);">
+  <div class="dynamic-island"></div>
+  <div class="status-bar"><span class="sb-time">9:41</span><div></div></div>
+  <div class="screen">
+    <div class="screen-header"><span class="sh-back">←</span><span class="sh-title">Price & Stock</span><span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,0.35);">Step 3 of 4</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:75%;"></div></div>
+    <div class="step-indicator">
+      <div class="si-step"><div class="si-dot si-done">✓</div><span class="si-label" style="color:var(--charcoal);">Item</span></div>
+      <div class="si-line done"></div>
+      <div class="si-step"><div class="si-dot si-done">✓</div><span class="si-label" style="color:var(--charcoal);">Photos</span></div>
+      <div class="si-line done"></div>
+      <div class="si-step"><div class="si-dot si-active">3</div><span class="si-label" style="color:var(--primary);">Price</span></div>
+      <div class="si-line"></div>
+      <div class="si-step"><div class="si-dot si-pending">4</div><span class="si-label" style="color:var(--light);">Review</span></div>
+    </div>
+    <div class="scrollable">
+      <div class="form-pad">
+        <div class="field">
+          <label class="field-label">Listing price</label>
+          <div style="font-size:11px;color:var(--light);margin-bottom:8px;">Similar iPhone 14 Pro (Grade B) selling for <strong style="color:var(--charcoal);">AED 1,900–2,400</strong></div>
+          <div class="price-row">
+            <div class="price-cur">AED</div>
+            <input class="price-input" value="2,100">
+          </div>
+        </div>
+        <!-- Live payout calc -->
+        <div class="payout-live" style="margin-bottom:16px;">
+          <div class="pl-title">Your estimated payout</div>
+          <div class="pl-row"><span class="pl-key">Listing price</span><span class="pl-val">AED 2,100</span></div>
+          <div class="pl-row"><span class="pl-key">Commission (10%)</span><span class="pl-val" style="color:rgba(239,68,68,0.7);">− AED 210</span></div>
+          <div class="pl-row"><span class="pl-key">Mamo fee (~2.9%)</span><span class="pl-val" style="color:rgba(239,68,68,0.7);">− AED 61.30</span></div>
+          <div class="pl-row" style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);"><span class="pl-key" style="color:rgba(255,255,255,0.6);font-weight:700;">Your VCC payout</span><span class="pl-total">AED 1,828.70</span></div>
+        </div>
+        <div class="field">
+          <label class="field-label">Stock quantity</label>
+          <div class="qty-row">
+            <button class="qty-btn">−</button>
+            <span class="qty-num">3</span>
+            <button class="qty-btn">+</button>
+            <span style="font-size:13px;color:var(--light);margin-left:4px;">units available</span>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label class="field-label">Pickup address</label>
+          <div style="display:flex;align-items:center;gap:10px;background:var(--success-p);border:1.5px solid rgba(34,197,94,0.25);border-radius:var(--radius-md);padding:12px 14px;cursor:pointer;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <div>
+              <div style="font-size:13px;font-weight:700;color:#15803D;">Al Turath Electronics store</div>
+              <div style="font-size:11px;color:#16A34A;">Shop 14, Al Ras Electronics Market, Deira</div>
+            </div>
+            <div style="margin-left:auto;font-size:12px;font-weight:700;color:var(--primary);">Change</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-cta">
+      <div class="cta-row">
+        <button class="cta-secondary">← Back</button>
+        <button class="cta-primary" style="flex:2;">Next: Review →</button>
+      </div>
+    </div>
+  </div>
+  <div class="home-bar"><div class="home-indicator"></div></div>
+</div>
+<div class="phone-label">11 · Add Listing Step 3</div>
+</div>
+
+<!-- ══ ADD LISTING STEP 4 — Review & Publish ══ -->
+<div class="phone-wrap">
+<div class="phone" style="background:var(--surface);">
+  <div class="dynamic-island"></div>
+  <div class="status-bar"><span class="sb-time">9:41</span><div></div></div>
+  <div class="screen">
+    <div class="screen-header"><span class="sh-back">←</span><span class="sh-title">Review Listing</span><span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,0.35);">Step 4 of 4</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:100%;"></div></div>
+    <div class="step-indicator">
+      <div class="si-step"><div class="si-dot si-done">✓</div><span class="si-label" style="color:var(--charcoal);">Item</span></div>
+      <div class="si-line done"></div>
+      <div class="si-step"><div class="si-dot si-done">✓</div><span class="si-label" style="color:var(--charcoal);">Photos</span></div>
+      <div class="si-line done"></div>
+      <div class="si-step"><div class="si-dot si-done">✓</div><span class="si-label" style="color:var(--charcoal);">Price</span></div>
+      <div class="si-line done"></div>
+      <div class="si-step"><div class="si-dot si-active">4</div><span class="si-label" style="color:var(--primary);">Review</span></div>
+    </div>
+    <div class="scrollable">
+      <div style="padding:14px 14px 0;">
+        <!-- Listing preview -->
+        <div class="review-preview">
+          <div class="rp-img rp-img-1">
+            <svg width="44" height="72" viewBox="0 0 60 100"><rect x="4" y="2" width="52" height="96" rx="10" fill="white" fill-opacity=".8" stroke="rgba(0,0,0,.08)" stroke-width="2"/><rect x="10" y="12" width="40" height="68" rx="4" fill="rgba(0,0,0,.06)"/><rect x="22" y="5" width="16" height="4" rx="2" fill="rgba(0,0,0,.12)"/></svg>
+            <div class="rp-verified">✓ Zook Verified</div>
+            <div class="rp-official">📸 Official Apple photo</div>
+          </div>
+          <div class="rp-body">
+            <div class="rp-brand">Apple · 2022</div>
+            <div class="rp-title">iPhone 14 Pro 256GB — Deep Purple</div>
+            <div class="rp-footer">
+              <div class="rp-price">AED 2,100</div>
+              <div class="rp-grade">B</div>
+            </div>
+          </div>
+        </div>
+        <!-- Summary rows -->
+        <div style="background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:12px;">
+          <div style="padding:11px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--mid);">Price</span><span style="font-weight:700;">AED 2,100</span></div>
+          <div style="padding:11px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--mid);">Your payout</span><span style="font-weight:700;color:var(--primary);">AED 1,828.70</span></div>
+          <div style="padding:11px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--mid);">Stock</span><span style="font-weight:700;">3 units</span></div>
+          <div style="padding:11px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--mid);">Grade</span><span style="font-weight:700;">B — Good</span></div>
+          <div style="padding:11px 14px;display:flex;justify-content:space-between;font-size:13px;"><span style="color:var(--mid);">Photos</span><span style="font-weight:700;color:var(--success);">3 uploaded ✓</span></div>
+        </div>
+        <!-- Ready note -->
+        <div style="background:var(--success-p);border:1px solid rgba(34,197,94,0.2);border-radius:var(--radius-md);padding:12px 14px;font-size:12px;color:#15803D;line-height:1.6;margin-bottom:14px;display:flex;gap:8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="flex-shrink:0;margin-top:1px;"><polyline points="20 6 9 17 4 12"/></svg>
+          All checks passed. Your listing will go live immediately and appear in search results.
+        </div>
+      </div>
+    </div>
+    <div class="bottom-cta">
+      <div class="cta-row">
+        <button class="cta-secondary">← Back</button>
+        <button class="cta-primary" style="flex:2;">🚀 Publish Listing</button>
+      </div>
+    </div>
+  </div>
+  <div class="home-bar"><div class="home-indicator"></div></div>
+</div>
+<div class="phone-label">12 · Add Listing Step 4</div>
+</div>
+
+</body>
+</html>

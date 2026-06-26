@@ -1,72 +1,60 @@
 # Zook Backend — Roadmap
 
-Tracking the upcoming feature work. Updated 2026-06-24.
+Tracking the upcoming feature work. Updated 2026-06-26.
 
-## Status
+## Pending
 
-- [x] **Supabase document upload (vendor upload)** — _complete_
-- [ ] Admin product catalogue CRUD
-- [ ] Vendor add items
-- [x] **Vendor list (admin CRUD)** — _complete_
-- [x] **Admin approve/suspend vendor** — _complete (via vendor update)_
-- [ ] Document verify and approve (admin)
-- [x] **Vendor auth `me`** — _complete_
+### Vendor — Listings
+- [ ] `GET  /vendors/me/listings` — list with status filter (all / live / paused / low stock) + counts
+- [ ] `GET  /catalog/search?q=` — search product catalog (used in listing creation step 1)
+- [ ] `GET  /catalog/:id` — catalog product detail with variants (storage, colour)
+- [ ] `POST /vendors/me/listings` — create listing (step 1: catalog + condition; step 2: photos; step 3: price + stock; step 4: publish)
+- [ ] `GET  /vendors/me/listings/:id` — single listing detail
+- [ ] `PATCH /vendors/me/listings/:id` — update listing (pause/unpause, price, stock)
+- [ ] `DELETE /vendors/me/listings/:id` — delete listing
+
+### Admin — Product Catalogue
+- [ ] `GET    /admin/catalog` — list catalog items
+- [ ] `POST   /admin/catalog` — create brand/model/variant entry
+- [ ] `GET    /admin/catalog/:id` — catalog item detail
+- [ ] `PATCH  /admin/catalog/:id` — update catalog item
+- [ ] `DELETE /admin/catalog/:id` — remove catalog item
+
+### Vendor — Orders
+- [ ] `GET  /vendors/me/orders?status=` — list orders with status filter (All / New / Preparing / Shipped / Delivered)
+- [ ] `GET  /vendors/me/orders/:id` — order detail with payout breakdown and 5-step timeline
+- [ ] `PATCH /vendors/me/orders/:id/pack` — start packing (moves to packing state)
+- [ ] `POST  /vendors/me/orders/:id/photos` — upload packing photos (pre-pack + post-pack, 2 required)
+- [ ] `PATCH /vendors/me/orders/:id/ready` — mark ready for pickup (after photos verified)
+
+### Vendor — Dashboard
+- [ ] `GET /vendors/me/dashboard` — orders today, live listings, monthly earnings, available payout balance
+
+### Vendor — Payouts
+- [ ] `GET  /vendors/me/payouts/summary` — total earned, ready now, in transit, all-time stats
+- [ ] `GET  /vendors/me/payouts` — payout history list
+- [ ] `POST /vendors/me/payouts/redeem` — trigger VCC redemption via Mamo
+
+### Vendor — Store Profile
+- [ ] `PATCH /vendors/me/store` — update store name, description, phone, pickup address
+- [ ] `POST  /vendors/me/store/cover` — upload store cover image
+
+### Vendor — Notifications
+- [ ] `GET   /vendors/me/notifications` — paginated list, grouped by date
+- [ ] `PATCH /vendors/me/notifications/:id/read` — mark single notification as read
+- [ ] `PATCH /vendors/me/notifications/read-all` — mark all as read
+- [ ] `GET   /vendors/me/notifications/unread-count` — unread badge count
+
+### Vendor — Settings
+- [ ] `GET   /vendors/me/settings` — get notification preferences + language/currency
+- [ ] `PATCH /vendors/me/settings` — update notification toggles, language, currency
+- [ ] `GET   /vendors/me/sessions` — list active sessions (for security screen)
 
 ## Done
 
-### Supabase document upload (vendor upload) ✅
-
-Presigned upload/download via Supabase Storage, bucket chosen from the
-`StorageBucket` enum (defaults to `zook_data`).
-
-- `src/storage/storage-bucket.enum.ts` — bucket enum + `DEFAULT_STORAGE_BUCKET`
-- `src/storage/storage.service.ts` — `createSignedUploadUrl` / `createSignedDownloadUrl`
-- `src/storage/storage.controller.ts` — `POST /storage/uploads/sign`, `POST /storage/downloads/sign`
-- `src/storage/dto/` — `presign-upload.dto.ts`, `presign-download.dto.ts`
-- Config: `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_URL` in `configuration.ts` / `env.validation.ts` / `.env.example`
-
-Runtime prerequisites: set `SUPABASE_SERVICE_ROLE_KEY` and create the private
-buckets in Supabase.
-
-### Vendor auth `me` ✅
-
-`GET /auth/vendor/me` — authenticated session check returning the vendor's
-identity and core store profile.
-
-- `src/vendors/vendor-auth.service.ts` — `me(userId)` → id, email, fullName, phone, phoneVerified, roles, vendor{ id, storeName, status }
-- `src/vendors/vendor-auth.controller.ts` — `GET /auth/vendor/me`, guarded by `JwtAuthGuard` + `RolesGuard` (`@Roles(VENDOR)`)
-
-### Admin vendor CRUD ✅
-
-Admin endpoints to list, view, edit, soft-delete and restore vendors. All under
-`@Roles(ADMIN)`. Soft delete via a new `deleted_at` column; archived vendors are
-hidden from list/detail unless `includeDeleted=true`.
-
-- `GET /admin/vendors` — paginated; filter by `status`, `search` (store/email/phone), `includeDeleted`
-- `GET /admin/vendors/:id` — detail: owner, latest KYC, product count
-- `POST /admin/vendors` — create a vendor (provisions user + vendor role + vendor record)
-- `PATCH /admin/vendors/:id` — edit profile fields (storeName, address, pickup lat/lng, commissionRate, status, strikeCount)
-- `POST /admin/vendors/:id/activate` — approve the store; **gated** on the latest KYC being approved
-- `POST /admin/vendors/:id/suspend` — suspend the store
-- `DELETE /admin/vendors/:id` — soft-delete (archive)
-- `POST /admin/vendors/:id/restore` — restore
-- Files: `src/admin/admin-vendors.controller.ts`, `admin-vendors.service.ts`, `dto/{create,list,update}-vendor.dto.ts`, wired in `admin.module.ts`
-- Schema: `Vendor.deletedAt` + migration `…_vendor_soft_delete`
-
-**Vendor self-service (`/vendors`, `@Roles(VENDOR)`):**
-- `GET /vendors/me` — personal vendor details (store + latest KYC) — kept
-- `DELETE /vendors/me` — vendor closes (soft-deletes) their own account
-
-**Two-step approval (status flow):**
-Document approval and store activation are now separate, so they show as
-distinct states:
-1. `POST /admin/vendor-kyc/:id/approve` → `kyc=approved`, vendor stays `pending`
-   (documents approved, awaiting activation)
-2. `POST /admin/vendors/:id/activate` → `vendor=approved` (store live)
-
-The onboarding tracker (`GET /vendors/me/onboarding-status`) reflects both
-stages: "Admin review" = done once docs approved; "Store approved" = done only
-after activation.
-
-**Before running:** apply the migration and regenerate the client:
-`npm run prisma:deploy` (or `prisma migrate dev`) then `npm run prisma:generate`.
+- [x] Logout (current session) — `POST /auth/logout`
+- [x] Logout all devices — `POST /auth/logout-all`
+- [x] Document verify and approve (admin)
+- [x] Supabase document upload (vendor upload)
+- [x] Vendor auth `me`
+- [x] Admin vendor CRUD

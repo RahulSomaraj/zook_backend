@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zook — Vendor App · KYC Flow + Order States</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--primary:#FF4500;--primary-d:#CC3700;--primary-l:#FF6B35;--primary-p:#FFF0EB;--black:#0A0A0A;--charcoal:#333;--mid:#666;--light:#999;--border:#EBEBEB;--surface:#F7F7F5;--white:#FFF;--success:#22C55E;--success-p:#F0FDF4;--warning:#F59E0B;--warning-p:#FFFBEB;--error:#EF4444;--error-p:#FEF2F2;--info:#3B82F6;--info-p:#EFF6FF;--font:'Manrope',sans-serif;--font-brand:'Montserrat',sans-serif;--radius-sm:8px;--radius-md:14px;--radius-lg:20px;--radius-full:9999px;}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:var(--font);background:#0D0D0D;min-height:100vh;display:flex;flex-wrap:wrap;gap:24px;padding:36px;justify-content:center;align-items:flex-start;-webkit-font-smoothing:antialiased;}
+.phone{width:390px;border-radius:48px;border:10px solid #1C1C1C;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,0.05),0 40px 80px rgba(0,0,0,0.7);flex-shrink:0;display:flex;flex-direction:column;}
+.pw{display:flex;flex-direction:column;align-items:center;gap:8px;}
+.pl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:rgba(255,255,255,0.2);text-align:center;}
+.di{width:120px;height:34px;background:#000;border-radius:20px;margin:12px auto 0;flex-shrink:0;}
+.hb{height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.hi{width:134px;height:5px;background:#DADADA;border-radius:var(--radius-full);}
+.sb{display:flex;align-items:center;justify-content:space-between;padding:6px 24px 0;flex-shrink:0;}
+.screen{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:700px;}
+.scr{flex:1;overflow-y:auto;}.scr::-webkit-scrollbar{display:none;}
+.app-header{background:var(--black);padding:14px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.ah-logo{font-family:var(--font-brand);font-weight:900;font-size:22px;color:var(--primary);}
+.ah-back{font-size:20px;color:rgba(255,255,255,0.5);cursor:pointer;}
+.ah-title{font-size:15px;font-weight:800;color:white;}
+.ah-id{margin-left:auto;font-family:'Courier New',monospace;font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);}
+.kyc-tracker{padding:20px 20px 0;}
+.kt-step{display:flex;gap:14px;position:relative;}
+.kt-step:not(:last-child)::after{content:'';position:absolute;left:15px;top:32px;width:2px;bottom:-4px;z-index:0;}
+.kt-step.done:not(:last-child)::after{background:var(--success);}
+.kt-step.active:not(:last-child)::after,.kt-step.warn:not(:last-child)::after{background:linear-gradient(var(--primary),var(--border));}
+.kt-step.locked:not(:last-child)::after{background:var(--border);}
+.kt-dot{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;position:relative;z-index:1;border:2px solid transparent;}
+.kt-done{background:var(--success);color:white;}
+.kt-active{background:var(--primary);color:white;box-shadow:0 0 0 5px var(--primary-p);}
+.kt-warn{background:var(--warning);color:white;box-shadow:0 0 0 5px var(--warning-p);}
+.kt-locked{background:var(--white);border-color:var(--border);color:var(--light);}
+.kt-body{padding:2px 0 22px;flex:1;}
+.kt-title{font-size:14px;font-weight:800;color:var(--charcoal);margin-bottom:3px;}
+.kt-step.active .kt-title{color:var(--black);}
+.kt-step.locked .kt-title{color:var(--light);}
+.kt-sub{font-size:12px;color:var(--light);line-height:1.5;}
+.kt-step.active .kt-sub{color:var(--mid);}
+.kt-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px 14px;margin-top:10px;}
+.kt-card.success{border-color:rgba(34,197,94,0.25);background:var(--success-p);}
+.kt-card.warn{border-color:rgba(245,158,11,0.25);background:var(--warning-p);}
+.kt-card.primary{border-color:rgba(255,69,0,0.2);background:var(--primary-p);}
+.doc-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-md);margin-bottom:8px;cursor:pointer;}
+.doc-row.uploaded{border-color:rgba(34,197,94,0.3);background:var(--success-p);}
+.doc-icon{width:36px;height:36px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.doc-name{font-size:13px;font-weight:700;color:var(--black);}
+.doc-meta{font-size:11px;color:var(--light);margin-top:1px;}
+.doc-row.uploaded .doc-meta{color:var(--success);}
+.doc-right{margin-left:auto;}
+.field{margin-bottom:14px;}.field:last-child{margin-bottom:0;}
+.field-label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--mid);margin-bottom:5px;}
+.zook-input{width:100%;padding:11px 13px;font-family:var(--font);font-size:14px;color:var(--charcoal);background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-md);outline:none;transition:all 0.15s;}
+.zook-input:focus{border-color:var(--primary);}
+.zook-input::placeholder{color:var(--light);}
+.cta-bar{padding:12px 16px;background:var(--white);border-top:1px solid var(--border);flex-shrink:0;}
+.cta-primary{width:100%;background:var(--primary);color:white;border:none;border-radius:var(--radius-full);padding:15px;font-family:var(--font);font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(255,69,0,0.24);}
+.cta-disabled{width:100%;background:var(--border);color:var(--light);border:none;border-radius:var(--radius-full);padding:15px;font-family:var(--font);font-size:15px;font-weight:700;cursor:not-allowed;}
+.status-banner{padding:13px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.panel{background:var(--white);margin:12px 14px 0;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;}
+.panel:last-child{margin-bottom:14px;}
+.panel-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.panel-title{font-size:13px;font-weight:800;color:var(--black);}
+.panel-body{padding:14px;}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.info-row:last-child{border-bottom:none;}
+.ik{color:var(--mid);}.iv{font-weight:700;color:var(--charcoal);}
+.photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.photo-slot{border-radius:var(--radius-md);aspect-ratio:4/3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;}
+.ps-empty{border:2px dashed var(--border);background:var(--white);}
+.ps-done{border:2px solid var(--success);}
+.ps-done-1{background:linear-gradient(135deg,#FFF0EB,#FFD4C2);}
+.ps-done-2{background:linear-gradient(135deg,#EFF6FF,#BFDBFE);}
+.ps-label{font-size:10px;font-weight:700;}
+.payout-dark{background:var(--black);border-radius:var(--radius-md);padding:14px;}
+.pd-row{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05);}
+.pd-row:last-child{border-bottom:none;}
+.pd-k{color:rgba(255,255,255,0.4);}.pd-v{font-weight:700;color:rgba(255,255,255,0.75);}
+.pd-total{font-size:17px;font-weight:800;color:var(--primary-l);}
+.timeline{display:flex;flex-direction:column;}
+.tl{display:flex;gap:12px;position:relative;}
+.tl:not(:last-child)::before{content:'';position:absolute;left:10px;top:22px;width:2px;bottom:-4px;z-index:0;}
+.tl.tl-done:not(:last-child)::before{background:var(--success);}
+.tl.tl-active:not(:last-child)::before{background:linear-gradient(var(--primary),var(--border));}
+.tl.tl-pending:not(:last-child)::before{background:var(--border);}
+.tld{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;position:relative;z-index:1;}
+.tld-done{background:var(--success);color:white;}
+.tld-active{background:var(--primary);color:white;box-shadow:0 0 0 4px var(--primary-p);}
+.tld-pending{background:white;border:2px solid var(--border);color:var(--light);}
+.tlb{padding:1px 0 14px;flex:1;}
+.tlt{font-size:12px;font-weight:700;color:var(--charcoal);}
+.tl.tl-active .tlt{color:var(--primary);font-weight:800;}
+.tl.tl-pending .tlt{color:var(--light);}
+.tlm{font-size:11px;color:var(--light);margin-top:2px;}
+.tl.tl-active .tlm{color:rgba(255,69,0,0.6);}
+.vcc-hero{margin:12px 14px 0;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-d) 100%);border-radius:var(--radius-lg);padding:18px;position:relative;overflow:hidden;}
+.vcc-hero::before{content:'';position:absolute;top:-30px;right:-30px;width:150px;height:150px;background:radial-gradient(circle,rgba(255,255,255,0.14) 0%,transparent 65%);}
+.vh-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:rgba(255,255,255,0.6);margin-bottom:5px;position:relative;z-index:1;}
+.vh-amount{font-size:30px;font-weight:800;color:white;letter-spacing:-0.5px;margin-bottom:3px;position:relative;z-index:1;}
+.vh-sub{font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:14px;position:relative;z-index:1;}
+.vh-btn{display:flex;align-items:center;justify-content:center;gap:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);border-radius:var(--radius-full);padding:11px;font-family:var(--font);font-size:13px;font-weight:700;color:white;cursor:pointer;position:relative;z-index:1;}
+.courier-card{display:flex;align-items:center;gap:12px;padding:14px;}
+.cc-icon{width:44px;height:44px;border-radius:var(--radius-md);background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.cc-name{font-size:13px;font-weight:800;color:var(--black);}
+.cc-meta{font-size:11px;color:var(--light);margin-top:2px;}
+.cc-awb{font-family:'Courier New',monospace;font-size:11px;color:var(--primary);font-weight:700;margin-top:2px;}
+.cc-call{margin-left:auto;width:38px;height:38px;background:var(--primary-p);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+</style>
+</head>
+<body>
+
+<!-- ══════════ KYC STEP 1 ══════════ -->
+<div class="pw">
+<div class="phone" style="background:var(--surface);">
+  <div class="di"></div>
+  <div class="sb" style="background:var(--black);"><span style="font-size:15px;font-weight:800;color:white;">9:41</span></div>
+  <div class="screen">
+    <div class="app-header"><div class="ah-logo">ZOOK</div><div style="margin-left:auto;font-size:12px;font-weight:600;color:rgba(255,255,255,0.35);">Step 1 of 4</div></div>
+    <div style="height:4px;background:var(--border);flex-shrink:0;"><div style="width:25%;height:100%;background:var(--primary);"></div></div>
+    <div class="scr">
+      <div class="kyc-tracker">
+        <div class="kt-step active">
+          <div class="kt-dot kt-active">1</div>
+          <div class="kt-body">
+            <div class="kt-title">Create your account</div>
+            <div class="kt-sub">Tell us about your store</div>
+            <div class="kt-card primary" style="margin-top:8px;">
+              <div class="field"><label class="field-label">Store name</label><input class="zook-input" placeholder="e.g. Al Turath Electronics"></div>
+              <div class="field"><label class="field-label">Owner full name</label><input class="zook-input" placeholder="As per Emirates ID"></div>
+              <div class="field"><label class="field-label">Mobile number</label>
+                <div style="display:flex;border:1.5px solid var(--border);border-radius:var(--radius-md);overflow:hidden;">
+                  <div style="padding:0 12px;background:var(--surface);font-size:14px;font-weight:700;display:flex;align-items:center;border-right:1.5px solid var(--border);font-family:var(--font);">&#x1F1E6;&#x1F1EA; +971</div>
+                  <input class="zook-input" style="border:none;border-radius:0;" placeholder="50 000 0000" type="tel">
+                </div>
+              </div>
+              <div class="field" style="margin-bottom:0;"><label class="field-label">Email</label><input class="zook-input" placeholder="store@email.com" type="email"></div>
+            </div>
+          </div>
+        </div>
+        <div class="kt-step locked"><div class="kt-dot kt-locked">2</div><div class="kt-body"><div class="kt-title">Upload documents</div><div class="kt-sub">Trade license, Emirates ID</div></div></div>
+        <div class="kt-step locked"><div class="kt-dot kt-locked">3</div><div class="kt-body"><div class="kt-title">Admin review</div><div class="kt-sub">Usually within 24 hours</div></div></div>
+        <div class="kt-step locked"><div class="kt-dot kt-locked">4</div><div class="kt-body" style="padding-bottom:24px;"><div class="kt-title">Store approved</div><div class="kt-sub">Start listing &amp; earning</div></div></div>
+      </div>
+    </div>
+    <div class="cta-bar"><button class="cta-primary">Verify number &amp; continue &#x2192;</button></div>
+  </div>
+  <div class="hb"><div class="hi"></div></div>
+</div>
+<div class="pl">KYC Step 1 &middot; Account Setup</div>
+</div>
+
+<!-- ══════════ KYC STEP 2 ══════════ -->
+<div class="pw">
+<div class="phone" style="background:var(--surface);">
+  <div class="di"></div>
+  <div class="sb" style="background:var(--black);"><span style="font-size:15px;font-weight:800;color:white;">9:41</span></div>
+  <div class="screen">
+    <div class="app-header"><div class="ah-logo">ZOOK</div><div style="margin-left:auto;font-size:12px;font-weight:600;color:rgba(255,255,255,0.35);">Step 2 of 4</div></div>
+    <div style="height:4px;background:var(--border);flex-shrink:0;"><div style="width:50%;height:100%;background:var(--primary);"></div></div>
+    <div class="scr">
+      <div class="kyc-tracker">
+        <div class="kt-step done">
+          <div class="kt-dot kt-done">&#x2713;</div>
+          <div class="kt-body">
+            <div class="kt-title">Account created</div>
+            <div class="kt-sub">Email &amp; phone verified</div>
+            <div class="kt-card success" style="margin-top:8px;display:flex;align-items:center;gap:8px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span style="font-size:12px;font-weight:700;color:#15803D;">Verified &#x2014; Al Turath Electronics</span>
+            </div>
+          </div>
+        </div>
+        <div class="kt-step active">
+          <div class="kt-dot kt-active">2</div>
+          <div class="kt-body">
+            <div class="kt-title">Upload documents</div>
+            <div class="kt-sub">Required for KYC verification</div>
+            <div class="kt-card primary" style="margin-top:8px;">
+              <div class="doc-row uploaded" style="margin-bottom:8px;">
+                <div class="doc-icon" style="background:var(--success-p);">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
+                </div>
+                <div><div class="doc-name">Trade License</div><div class="doc-meta">&#x2713; Uploaded &#x2014; license_2025.pdf</div></div>
+                <div class="doc-right"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+              </div>
+              <div class="doc-row uploaded" style="margin-bottom:8px;">
+                <div class="doc-icon" style="background:var(--success-p);">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                </div>
+                <div><div class="doc-name">Emirates ID &#x2014; Front</div><div class="doc-meta">&#x2713; Uploaded &#x2014; eid_front.jpg</div></div>
+                <div class="doc-right"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+              </div>
+              <div class="doc-row" style="margin-bottom:0;">
+                <div class="doc-icon" style="background:var(--surface);">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--light)" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                </div>
+                <div><div class="doc-name">Emirates ID &#x2014; Back</div><div class="doc-meta">Tap to take photo or upload</div></div>
+                <div class="doc-right">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="kt-step locked"><div class="kt-dot kt-locked">3</div><div class="kt-body"><div class="kt-title">Admin review</div><div class="kt-sub">Usually within 24 hours</div></div></div>
+        <div class="kt-step locked"><div class="kt-dot kt-locked">4</div><div class="kt-body" style="padding-bottom:24px;"><div class="kt-title">Store approved</div><div class="kt-sub">Start listing &amp; earning</div></div></div>
+      </div>
+    </div>
+    <div class="cta-bar"><button class="cta-disabled">Upload Emirates ID back to continue</button></div>
+  </div>
+  <div class="hb"><div class="hi"></div></div>
+</div>
+<div class="pl">KYC Step 2 &middot; Documents</div>
+</div>
+
+<!-- ══════════ KYC STEP 3 ══════════ -->
+<div class="pw">
+<div class="phone" style="background:var(--surface);">
+  <div class="di"></div>
+  <div class="sb" style="background:var(--black);"><span style="font-size:15px;font-weight:800;color:white;">9:41</span></div>
+  <div class="screen">
+    <div class="app-header"><div class="ah-logo">ZOOK</div><div style="margin-left:auto;font-size:12px;font-weight:600;color:rgba(255,255,255,0.35);">Step 3 of 4</div></div>
+    <div style="height:4px;background:var(--border);flex-shrink:0;"><div style="width:75%;height:100%;background:var(--warning);"></div></div>
+    <div class="scr">
+      <div class="kyc-tracker">
+        <div class="kt-step done"><div class="kt-dot kt-done">&#x2713;</div><div class="kt-body"><div class="kt-title">Account created</div><div class="kt-sub">Email &amp; phone verified</div></div></div>
+        <div class="kt-step done">
+          <div class="kt-dot kt-done">&#x2713;</div>
+          <div class="kt-body">
+            <div class="kt-title">Documents submitted</div>
+            <div class="kt-sub">Trade license, Emirates ID</div>
+            <div class="kt-card success" style="margin-top:8px;display:flex;align-items:center;gap:8px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span style="font-size:11px;font-weight:700;color:#15803D;">3 documents uploaded successfully</span>
+            </div>
+          </div>
+        </div>
+        <div class="kt-step warn active">
+          <div class="kt-dot kt-warn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="kt-body">
+            <div class="kt-title">Admin reviewing</div>
+            <div class="kt-sub">Our team is verifying your documents</div>
+            <div class="kt-card warn" style="margin-top:8px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span style="font-size:13px;font-weight:800;color:#92400E;">Under review</span>
+              </div>
+              <div style="font-size:12px;color:#92400E;line-height:1.6;">Submitted <strong>Today, 9:41 AM</strong>. You will receive an SMS and email once approved &#x2014; usually within 24 hours.</div>
+              <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(245,158,11,0.2);display:flex;align-items:center;justify-content:space-between;">
+                <span style="font-size:11px;color:#B45309;font-weight:600;">Need help?</span>
+                <button style="background:var(--warning);color:white;border:none;border-radius:var(--radius-full);padding:6px 14px;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;">Chat support</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="kt-step locked"><div class="kt-dot kt-locked">4</div><div class="kt-body" style="padding-bottom:24px;"><div class="kt-title">Store approved</div><div class="kt-sub">Start listing &amp; earning</div></div></div>
+      </div>
+    </div>
+    <div class="cta-bar"><button class="cta-disabled">&#x23F3; Waiting for admin approval</button></div>
+  </div>
+  <div class="hb"><div class="hi"></div></div>
+</div>
+<div class="pl">KYC Step 3 &middot; Admin Review</div>
+</div>
+
+<!-- ══════════ KYC STEP 4 — APPROVED ══════════ -->
+<div class="pw">
+<div class="phone" style="background:var(--surface);">
+  <div class="di"></div>
+  <div class="sb" style="background:var(--black);"><span style="font-size:15px;font-weight:800;color:white;">9:41</span></div>
+  <div class="screen">
+    <div class="app-header">
+      <div class="ah-logo">ZOOK</div>
+      <div style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.2);border-radius:var(--radius-full);padding:4px 10px;font-size:10px;font-weight:700;color:var(--success);">&#x2713; Approved</div>
+    </div>
+    <div style="height:4px;background:var(--success);flex-shrink:0;"></div>
+    <div class="scr">
+      <div class="kyc-tracker">
+        <div class="kt-step done"><div class="kt-dot kt-done">&#x2713;</div><div class="kt-body"><div class="kt-title">Account created</div><div class="kt-sub">Email &amp; phone verified</div></div></div>
+        <div class="kt-step done"><div class="kt-dot kt-done">&#x2713;</div><div class="kt-body"><div class="kt-title">Documents submitted</div><div class="kt-sub">Trade license, Emirates ID</div></div></div>
+        <div class="kt-step done"><div class="kt-dot kt-done">&#x2713;</div><div class="kt-body" style="padding-bottom:8px;"><div class="kt-title">Admin reviewed</div><div class="kt-sub">Verified on 7 Jun 2026</div></div></div>
+        <div class="kt-step" style="pointer-events:none;">
+          <div class="kt-dot kt-done" style="background:var(--success);box-shadow:0 0 0 5px var(--success-p);">&#x2713;</div>
+          <div class="kt-body" style="padding-bottom:12px;">
+            <div class="kt-title" style="color:var(--success);">Store approved! &#x1F389;</div>
+            <div class="kt-sub" style="color:var(--mid);">You can now list items and start earning</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Welcome card — full width, outside timeline -->
+      <div style="margin:4px 16px 20px;">
+        <div style="background:var(--success);border-radius:20px;padding:22px 20px;position:relative;overflow:hidden;">
+          <div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;background:radial-gradient(circle,rgba(255,255,255,0.18) 0%,transparent 65%);pointer-events:none;"></div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;position:relative;z-index:1;">
+            <div style="width:48px;height:48px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid rgba(255,255,255,0.3);">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div>
+              <div style="font-size:18px;font-weight:800;color:white;letter-spacing:-0.3px;">Welcome to Zook!</div>
+              <div style="font-size:12px;color:rgba(255,255,255,0.7);margin-top:2px;">Al Turath Electronics is now live</div>
+            </div>
+          </div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.75);line-height:1.6;margin-bottom:18px;position:relative;z-index:1;">Add your first listing and start earning today. Your store is visible to buyers across the UAE.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;background:rgba(0,0,0,0.15);border-radius:12px;overflow:hidden;position:relative;z-index:1;">
+            <div style="text-align:center;padding:14px 8px;border-right:1px solid rgba(255,255,255,0.1);">
+              <div style="font-size:22px;font-weight:800;color:white;line-height:1;">10%</div>
+              <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.6);margin-top:4px;text-transform:uppercase;letter-spacing:0.05em;">Commission</div>
+            </div>
+            <div style="text-align:center;padding:14px 8px;border-right:1px solid rgba(255,255,255,0.1);">
+              <div style="font-size:22px;font-weight:800;color:white;line-height:1;">AED 0</div>
+              <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.6);margin-top:4px;text-transform:uppercase;letter-spacing:0.05em;">Listing fee</div>
+            </div>
+            <div style="text-align:center;padding:14px 8px;">
+              <div style="font-size:22px;font-weight:800;color:white;line-height:1;">VCC</div>
+              <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.6);margin-top:4px;text-transform:uppercase;letter-spacing:0.05em;">On delivery</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cta-bar"><button class="cta-primary" style="background:var(--success);box-shadow:0 4px 14px rgba(34,197,94,0.3);">&#x1F680; Go to my store &#x2192;</button></div>
+  </div>
+  <div class="hb"><div class="hi"></div></div>
+</div>
+<div class="pl">KYC Step 4 &middot; Approved &#x1F389;</div>
+</div>
+
+<!-- DIVIDER LABEL -->
+<div style="width:100%;text-align:center;padding:10px 0;"><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;color:rgba(255,255,255,0.15);">&#x2015;&#x2015; Order Detail &#x2014; All 5 States &#x2015;&#x2015;</span></div>
+
+<!-- ══════════ ORDER STATE 1: Confirmed ══════════ -->
+<div class="pw">
+<div class="phone" style="background:var(--surface);">
+  <div class="di"></div><div class="sb" style="background:var(--black);"><span style="font-size:15px;font-weight:800;color:white;">9:41</span></div>
+  <div class="screen">
+    <div class="app-header"><span class="ah-back">&#x2190;</span><span class="ah-title">Order Detail</span><span class="ah-id">#SUB-081</span></div>
+    <div class="status-banner" style="background:var(--info-p);border-bottom:1px solid rgba(59,130,246,0.15);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--info)" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      <div><div style="font-size:13px;font-weight:800;color:#1D4ED8;">New order received</div><div style="font-size:11px;color:var(--info);">Pack the item and upload 2 photos</div></div>
+      <span style="margin-left:auto;font-size:10px;font-weight:700;background:var(--info);color:white;padding:3px 9px;border-radius:var(--radius-full);">1 of 5</span>
+    </div>
+    <div class="scr">
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Item</div></div>
+        <div class="panel-body">
+          <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
+            <div style="width:52px;height:52px;border-radius:var(--radius-md);background:linear-gradient(135deg,#FFF0EB,#FFD4C2);display:flex;align-items:center;justify-content:center;border:1px solid var(--border);flex-shrink:0;"><svg width="22" height="36" viewBox="0 0 60 100"><rect x="4" y="2" width="52" height="96" rx="10" fill="white" fill-opacity=".8" stroke="rgba(0,0,0,.08)" stroke-width="2"/><rect x="10" y="12" width="40" height="68" rx="4" fill="rgba(0,0,0,.06)"/></svg></div>
+            <div><div style="font-size:14px;font-weight:800;color:var(--black);">iPhone 13 Mini 128GB</div><div style="font-size:12px;color:var(--light);margin-top:2px;">Midnight &middot; Grade B &middot; 1 unit</div></div>
+          </div>
+          <div class="info-row"><span class="ik">Sale price</span><span class="iv">AED 850</span></div>
+          <div class="info-row"><span class="ik">Your payout</span><span class="iv" style="color:var(--primary);">AED 739.75</span></div>
+          <div class="info-row"><span class="ik">Ordered</span><span class="iv">7 Jun &middot; 10:22 AM</span></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:14px;">
+        <div class="panel-head"><div class="panel-title">Order timeline</div></div>
+        <div class="panel-body">
+          <div class="timeline">
+            <div class="tl tl-active"><div class="tld tld-active">1</div><div class="tlb"><div class="tlt">Order confirmed &#x2014; pack now</div><div class="tlm">7 Jun &middot; 10:22 AM</div></div></div>
+            <div class="tl tl-pending"><div class="tld tld-pending">2</div><div class="tlb"><div class="tlt">Packing &amp; photos</div><div class="tlm">Upload before + after packing</div></div></div>
+            <div class="tl tl-pending"><div class="tld tld-pending">3</div><div class="tlb"><div class="tlt">Ready for pickup</div><div class="tlm">&#x2014;</div></div></div>
+            <div class="tl tl-pending"><div class="tld tld-pending">4</div><div class="tlb"><div class="tlt">Shipped &amp; delivered</div><div class="tlm">&#x2014;</div></div></div>
+            <div class="tl tl-pending" style="cursor:default;"><div class="tld tld-pending">5</div><div class="tlb" style="padding-bottom:0;"><div class="tlt">Payout issued</div><div class="tlm">VCC after delivery</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cta-bar"><button class="cta-primary">&#x1F4E6; Start Packing &#x2192;</button></div>
+  </div>
+  <div class="hb"><div class="hi"></div></div>
+</div>
+<div class="pl">Order State 1 &middot; Confirmed</div>
+</div>
+
+<!-- ══════════ ORDER STATE 2: 1/2 photos ══════════ -->
+<div class="pw">
+<div class="phone" style="background:var(--surface);">
+  <div class="di"></div><div class="sb" style="background:var(--black);"><span style="font-size:15px;font-weight:800;color:white;">9:41</span></div>
+  <div class="screen">
+    <div class="app-header"><span class="ah-back">&#x2190;</span><span class="ah-title">Order Detail</span><span class="ah-id">#SUB-081</span></div>
+    <div class="status-banner" style="background:var(--warning-p);border-bottom:1px solid rgba(245,158,11,0.2);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+      <div><div style="font-size:13px;font-weight:800;color:#B45309;">1 of 2 photos uploaded</div><div style="font-size:11px;color:var(--warning);">Take the after-packing photo to continue</div></div>
+      <span style="margin-left:auto;font-size:10px;font-weight:700;background:var(--warning);color:white;padding:3px 9px;border-radius:var(--radius-full);">2 of 5</span>
+    </div>
+    <div class="scr">
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">&#x1F4F8; Packing photos</div><span style="font-size:11px;font-weight:700;color:var(--warning);">1/2 done</span></div>
+        <div class="panel-body">
+          <div class="photo-grid">
+            <div class="photo-slot ps-done ps-done-1">
+              <svg width="28" height="44" viewBox="0 0 60 100"><rect x="4" y="2" width="52" height="96" rx="10" fill="white" fill-opacity=".7" stroke="rgba(0,0,0,.08)" stroke-width="2"/><rect x="10" y="12" width="40" height="68" rx="4" fill="rgba(0,0,0,.06)"/></svg>
+              <div class="ps-label" style="color:var(--success);">&#x2713; Before packing</div>
+            </div>
+            <div class="photo-slot ps-empty" style="border-color:var(--warning);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+              <div class="ps-label" style="color:var(--warning);">After packing needed</div>
+            </div>
+          </div>
+          <div style="margin-top:10px;padding:9px 12px;background:var(--error-p);border:1px solid rgba(239,68,68,0.15);border-radius:var(--radius-sm);font-size:11px;color:#B91C1C;line-height:1.5;">&#x26A0;&#xFE0F; No contact info, phone numbers or social media in photos. Fraud detection is active.</div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:14px;">
+        <div class="panel-head"><div class="panel-title">Order timeline</div></div>
+        <div class="panel-body">
+          <div class="timeline">
+            <div class="tl tl-done"><div class="tld tld-done">&#x2713;</div><div class="tlb"><div class="tlt">Order confirmed</div><div class="tlm">7 Jun &middot; 10:22 AM</div></div></div>
+            <div class="tl tl-active"><div class="tld tld-active">2</div><div class="tlb"><div class="tlt">Packing &#x2014; 1 of 2 photos done</div><div class="tlm">Take after-packing photo to proceed</div></div></div>
+            <div class="tl tl-pending"><div class="tld tld-pending">3</div><div class="tlb"><div class="tlt">Ready for pickup</div><div class="tlm">&#x2014;</div></div></div>
+            <div class="tl tl-pending"><div class="tld tld-pending">4</div><div class="tlb"><div class="tlt">Shipped &amp; delivered</div><div class="tlm">&#x2014;</div></div></div>
+            <div class="tl tl-pending" style="cursor:default;"><div class="tld tld-pending">5</div><div class="tlb" style="padding-bottom:0;"><div class="tlt">Payout issued</div><div class="tlm">&#x2014;</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cta-bar"><button class="cta-primary">&#x1F4F8; Take After-Packing Photo &#x2192;</button></div>
+  </div>
+  <div class="hb"><div class="hi"></div></div>
+</div>
+<div class="pl">Order State 2 &middot; Packing 1/2</div>
+</div>
+
+<!-- ══════════ ORDER STATE 3: Both photos → Mark Ready ══════════ -->
+<div class="pw">
+<div class="phone" style="background:var(--surface);">
+  <div class="di"></div><div class="sb" style="background:var(--black);"><span style="font-size:15px;font-weight:800;color:white;">9:41</span></div>
+  <div class="screen">
+    <div class="app-header"><span class="ah-back">&#x2190;</span><span class="ah-title">Order Detail</span><span class="ah-id">#SUB-081</span></div>
+    <div class="status-banner" style="background:var(--success-p);border-bottom:1px solid rgba(34,197,94,0.2);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+      <div><div style="font-size:13px;font-weight:800;color:#15803D;">Both photos verified &#x2713;</div><div style="font-size:11px;color:var(--success);">Fraud check passed &#x2014; mark ready for pickup</div></div>
+      <span style="margin-left:auto;font-size:10px;font-weight:700;background:var(--success);color:white;padding:3px 9px;border-radius:var(--radius-full);">3 of 5</span>
+    </div>
+    <div class="scr">
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">&#x1F4F8; Packing photos</div><span style="font-size:11px;font-weight:700;color:var(--success);">&#x2713; 2/2 verified</span></div>
+        <div class="panel-body">
+          <div class="photo-grid">
+            <div class="photo-slot ps-done ps-done-1">
+              <svg width="28" height="44" viewBox="0 0 60 100"><rect x="4" y="2" width="52" height="96" rx="10" fill="white" fill-opacity=".7" stroke="rgba(0,0,0,.08)" stroke-width="2"/></svg>
+              <div class="ps-label" style="color:var(--success);">&#x2713; Before packing</div>
+            </div>
+            <div class="photo-slot ps-done ps-done-2">
+              <svg width="28" height="44" viewBox="0 0 60 100"><rect x="4" y="2" width="52" height="96" rx="10" fill="white" fill-opacity=".6" stroke="rgba(0,0,0,.08)" stroke-width="2"/></svg>
+              <div class="ps-label" style="color:var(--success);">&#x2713; After packing</div>
+            </div>
+          </div>
+          <div style="margin-top:10px;padding:9px 12px;background:var(--success-p);border:1px solid rgba(34,197,94,0.15);border-radius:var(--radius-sm);font-size:11px;color:#15803D;line-height:1.5;">&#x2713; Fraud detection passed. No issues found. Mark this order as ready for courier pickup.</div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:14px;">
+        <div class="panel-head"><div class="panel-title">Order timeline</div></div>
+        <div class="panel-body">
+          <div class="timeline">
+            <div class="tl tl-done"><div class="tld tld-done">&#x2713;</div><div class="tlb"><div class="tlt">Order confirmed</div><div class="tlm">7 Jun &middot; 10:22 AM</div></div></div>
+            <div class="tl tl-done"><div class="tld tld-done">&#x2713;</div><div class="tlb"><div class="tlt">Both photos verified</div><div class="tlm">7 Jun &middot; 11:04 AM &middot; Fraud check passed</div></div></div>
+            <div class="tl tl-active"><div class="tld tld-active">3</div><div class="tlb"><div class="tlt">Mark ready for pickup</div><div class="tlm">Porter.ae will be notified to collect</div></div></div>
+            <div class="tl tl-pending"><div class="tld tld-pending">4</div><div class="tlb"><div class="tlt">Shipped &amp; delivered</div><div class="tlm">&#x2014;</div></div></div>
+            <div class="tl tl-pending" style="cursor:default;"><div class="tld tld-pending">5</div><div class="tlb" style="padding-bottom:0;"><div class="tlt">Payout issued</div><div class="tlm">&#x2014;</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cta-bar"><button class="cta-primary" style="background:var(--success);box-shadow:0 4px 14px rgba(34,197,94,0.3);">&#x2713; Mark as Ready for Pickup</button></div>
+  </div>
+  <div class="hb"><div class="hi"></div></div>
+</div>
+<div class="pl">Order State 3 &middot; Ready for Pickup</div>
+</div>
+
+<!-- ══════════ ORDER STATE 4: Shipped ══════════ -->
+<div class="pw">
+<div class="phone" style="background:var(--surface);">
+  <div class="di"></div><div class="sb" style="background:var(--black);"><span style="font-size:15px;font-weight:800;color:white;">9:41</span></div>
+  <div class="screen">
+    <div class="app-header"><span class="ah-back">&#x2190;</span><span class="ah-title">Order Detail</span><span class="ah-id">#SUB-081</span></div>
+    <div class="status-banner" style="background:#F5F3FF;border-bottom:1px solid rgba(124,58,237,0.15);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+      <div><div style="font-size:13px;font-weight:800;color:#5B21B6;">In transit with Porter.ae</div><div style="font-size:11px;color:#7C3AED;">Est. delivery today by 5:30 PM</div></div>
+      <span style="margin-left:auto;font-size:10px;font-weight:700;background:#7C3AED;color:white;padding:3px 9px;border-radius:var(--radius-full);">4 of 5</span>
+    </div>
+    <div class="scr">
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Courier</div></div>
+        <div class="courier-card">
+          <div class="cc-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--mid)" stroke-width="2" stroke-linecap="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+          <div><div class="cc-name">Porter.ae</div><div class="cc-meta">Express delivery &middot; Dubai</div><div class="cc-awb">AWB: PRT-00194091</div></div>
+          <div class="cc-call"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 6 6l.81-.81a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Payout on delivery</div></div>
+        <div class="panel-body">
+          <div class="payout-dark">
+            <div class="pd-row"><span class="pd-k">Sale price</span><span class="pd-v">AED 850</span></div>
+            <div class="pd-row"><span class="pd-k">Commission (10%)</span><span class="pd-v" style="color:rgba(239,68,68,0.7);">&#x2212; AED 85</span></div>
+            <div class="pd-row"><span class="pd-k">Mamo fee</span><span class="pd-v" style="color:rgba(239,68,68,0.7);">&#x2212; AED 25.25</span></div>
+            <div class="pd-row" style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);"><span class="pd-k" style="color:rgba(255,255,255,0.6);font-weight:700;">Your VCC payout</span><span class="pd-total">AED 739.75</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:14px;">
+        <div class="panel-head"><div class="panel-title">Order timeline</div></div>
+        <div class="panel-body">
+          <div class="timeline">
+            <div class="tl tl-done"><div class="tld tld-done">&#x2713;</div><div class="tlb"><div class="tlt">Order confirmed</div><div class="tlm">7 Jun &middot; 10:22 AM</div></div></div>
+            <div class="tl tl-done"><div class="tld tld-done">&#x2713;</div><div class="tlb"><div class="tlt">Photos verified &amp; packed</div><div class="tlm">7 Jun &middot; 11:04 AM</div></div></div>
+            <div class="tl tl-done"><div class="tld tld-done">&#x2713;</div><div class="tlb"><div class="tlt">Picked up by Porter.ae</div><div class="tlm">7 Jun &middot; 1:30 PM</div></div></div>
+            <div class="tl tl-active"><div class="tld tld-active">4</div><div class="tlb"><div class="tlt">In transit &#x2014; est. 5:30 PM</div><div class="tlm">Buyer notified &middot; Tracking active</div></div></div>
+            <div class="tl tl-pending" style="cursor:default;"><div class="tld tld-pending">5</div><div class="tlb" style="padding-bottom:0;"><div class="tlt">Payout on delivery</div><div class="tlm">AED 739.75 VCC via Mamo</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:12px 14px;background:var(--white);border-top:1px solid var(--border);flex-shrink:0;text-align:center;font-size:13px;font-weight:600;color:var(--light);">No action needed &#x2014; courier is handling delivery</div>
+  </div>
+  <div class="hb"><div class="hi"></div></div>
+</div>
+<div class="pl">Order State 4 &middot; Shipped</div>
+</div>
+
+<!-- ══════════ ORDER STATE 5: Delivered + VCC ══════════ -->
+<div class="pw">
+<div class="phone" style="background:var(--surface);">
+  <div class="di"></div><div class="sb" style="background:var(--black);"><span style="font-size:15px;font-weight:800;color:white;">9:41</span></div>
+  <div class="screen">
+    <div class="app-header"><span class="ah-back">&#x2190;</span><span class="ah-title">Order Detail</span><span class="ah-id">#SUB-081</span></div>
+    <div class="status-banner" style="background:var(--success-p);border-bottom:1px solid rgba(34,197,94,0.2);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+      <div><div style="font-size:13px;font-weight:800;color:#15803D;">Delivered successfully &#x1F389;</div><div style="font-size:11px;color:var(--success);">Your VCC payout is ready to redeem</div></div>
+      <span style="margin-left:auto;font-size:10px;font-weight:700;background:var(--success);color:white;padding:3px 9px;border-radius:var(--radius-full);">5 of 5</span>
+    </div>
+    <div class="scr">
+      <div class="vcc-hero">
+        <div class="vh-label">Your payout is ready</div>
+        <div class="vh-amount">AED 739.75</div>
+        <div class="vh-sub">Order #SUB-081 &middot; Delivered 7 Jun, 5:18 PM</div>
+        <button class="vh-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          Redeem via Mamo VCC
+        </button>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Payout breakdown</div></div>
+        <div class="panel-body">
+          <div class="payout-dark">
+            <div class="pd-row"><span class="pd-k">Sale price</span><span class="pd-v">AED 850</span></div>
+            <div class="pd-row"><span class="pd-k">Commission (10%)</span><span class="pd-v" style="color:rgba(239,68,68,0.7);">&#x2212; AED 85</span></div>
+            <div class="pd-row"><span class="pd-k">Mamo fee</span><span class="pd-v" style="color:rgba(239,68,68,0.7);">&#x2212; AED 25.25</span></div>
+            <div class="pd-row" style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);"><span class="pd-k" style="color:rgba(255,255,255,0.6);font-weight:700;">VCC issued</span><span class="pd-total">AED 739.75</span></div>
+          </div>
+          <div style="margin-top:10px;padding:9px 12px;background:var(--surface);border-radius:var(--radius-sm);font-size:11px;color:var(--mid);line-height:1.5;">Mamo Virtual Card emailed to <strong>ahmed@alturath.ae</strong>. Tap above to open the Mamo portal and load your card to your POS terminal.</div>
+        </div>
+      </div>
+      <div class="panel" style="margin-bottom:14px;">
+        <div class="panel-head"><div class="panel-title">Order timeline</div></div>
+        <div class="panel-body">
+          <div class="timeline">
+            <div class="tl tl-done"><div class="tld tld-done">&#x2713;</div><div class="tlb"><div class="tlt">Order confirmed</div><div class="tlm">7 Jun &middot; 10:22 AM</div></div></div>
+            <div class="tl tl-done"><div class="tld tld-done">&#x2713;</div><div class="tlb"><div class="tlt">Photos verified &amp; packed</div><div class="tlm">7 Jun &middot; 11:04 AM</div></div></div>
+            <div class="tl tl-done"><div class="tld tld-done">&#x2713;</div><div class="tlb"><div class="tlt">Picked up by Porter.ae</div><div class="tlm">7 Jun &middot; 1:30 PM</div></div></div>
+            <div class="tl tl-done"><div class="tld tld-done">&#x2713;</div><div class="tlb"><div class="tlt">Delivered to buyer</div><div class="tlm">7 Jun &middot; 5:18 PM &middot; Confirmed</div></div></div>
+            <div class="tl tl-done" style="cursor:default;"><div class="tld tld-done">&#x2713;</div><div class="tlb" style="padding-bottom:0;"><div class="tlt">Payout issued &#x2014; AED 739.75</div><div class="tlm">VCC emailed to ahmed@alturath.ae</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cta-bar"><button class="cta-primary" style="background:var(--success);box-shadow:0 4px 14px rgba(34,197,94,0.3);">&#x1F4B3; Redeem AED 739.75 via Mamo VCC</button></div>
+  </div>
+  <div class="hb"><div class="hi"></div></div>
+</div>
+<div class="pl">Order State 5 &middot; Delivered + VCC</div>
+</div>
+
+</body>
+</html>

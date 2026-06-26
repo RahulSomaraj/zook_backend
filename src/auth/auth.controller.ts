@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -18,6 +19,7 @@ import type { AuthenticatedUser } from './auth.types';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { AdminLoginDto } from './dto/admin-login.dto';
 import { AuthTokensDto } from './dto/auth-tokens.dto';
+import { LogoutDto } from './dto/logout.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
@@ -44,6 +46,26 @@ export class AuthController {
   @ApiUnauthorizedResponse({ description: 'Invalid or expired refresh token' })
   refresh(@Body() dto: RefreshTokenDto): Promise<AuthTokensDto> {
     return this.authService.refresh(dto.refreshToken);
+  }
+
+  @Post('logout')
+  @HttpCode(204)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Logout — revoke the supplied refresh token' })
+  @ApiNoContentResponse({ description: 'Session revoked' })
+  logout(@Body() dto: LogoutDto): Promise<void> {
+    return this.authService.logout(dto.refreshToken);
+  }
+
+  @Post('logout-all')
+  @HttpCode(204)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Logout from all devices — revoke every active session' })
+  @ApiNoContentResponse({ description: 'All sessions revoked' })
+  logoutAll(@CurrentUser() user: AuthenticatedUser): Promise<void> {
+    return this.authService.logoutAll(user.id);
   }
 
   @Get('me')

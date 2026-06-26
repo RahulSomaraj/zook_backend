@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zook — Vendor App · Onboarding</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--primary:#FF4500;--primary-d:#CC3700;--primary-l:#FF6B35;--primary-p:#FFF0EB;--black:#0A0A0A;--charcoal:#333;--mid:#666;--light:#999;--border:#EBEBEB;--surface:#F7F7F5;--white:#FFF;--success:#22C55E;--success-p:#F0FDF4;--warning:#F59E0B;--warning-p:#FFFBEB;--error:#EF4444;--error-p:#FEF2F2;--info:#3B82F6;--info-p:#EFF6FF;--font:'Manrope',sans-serif;--font-brand:'Montserrat',sans-serif;--radius-sm:8px;--radius-md:14px;--radius-lg:20px;--radius-xl:28px;--radius-full:9999px;}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:var(--font);background:#0D0D0D;min-height:100vh;display:flex;flex-wrap:wrap;gap:24px;padding:36px;justify-content:center;align-items:flex-start;-webkit-font-smoothing:antialiased;}
+
+/* SVG ICON DEFS */
+svg.icon-defs{display:none;}
+
+/* ── PHONE ── */
+.phone{width:390px;border-radius:48px;border:10px solid #1C1C1C;background:var(--white);overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,0.05),0 40px 80px rgba(0,0,0,0.7);flex-shrink:0;display:flex;flex-direction:column;}
+.phone-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;}
+.phone-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:rgba(255,255,255,0.2);}
+.dynamic-island{width:120px;height:34px;background:#000;border-radius:20px;margin:12px auto 0;flex-shrink:0;}
+.home-bar{height:22px;display:flex;align-items:center;justify-content:center;background:inherit;flex-shrink:0;}
+.home-indicator{width:134px;height:5px;background:#DADADA;border-radius:var(--radius-full);}
+.status-bar{display:flex;align-items:center;justify-content:space-between;padding:6px 24px 0;flex-shrink:0;}
+.sb-time{font-size:15px;font-weight:800;letter-spacing:-0.3px;}
+.sb-icons{display:flex;align-items:center;gap:5px;}
+.screen{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:680px;}
+.scrollable{flex:1;overflow-y:auto;}
+.scrollable::-webkit-scrollbar{display:none;}
+
+/* ── SPLASH ── */
+.splash{background:var(--black);justify-content:center;align-items:center;position:relative;overflow:hidden;}
+.splash-glow-1{position:absolute;top:-80px;left:-80px;width:320px;height:320px;background:radial-gradient(circle,rgba(255,69,0,0.22) 0%,transparent 65%);pointer-events:none;}
+.splash-glow-2{position:absolute;bottom:-60px;right:-60px;width:260px;height:260px;background:radial-gradient(circle,rgba(255,107,53,0.12) 0%,transparent 65%);pointer-events:none;}
+.splash-content{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:10px;}
+.splash-logo{font-family:var(--font-brand);font-weight:900;font-size:54px;color:var(--primary);letter-spacing:-2px;line-height:1;}
+.splash-sub{font-size:12px;color:rgba(255,255,255,0.3);font-weight:600;letter-spacing:0.12em;text-transform:uppercase;}
+.splash-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,69,0,0.12);border:1px solid rgba(255,69,0,0.2);border-radius:var(--radius-full);padding:6px 14px;font-size:11px;font-weight:700;color:var(--primary-l);margin-top:8px;}
+.splash-loader{display:flex;gap:6px;margin-top:40px;}
+.ld{width:6px;height:6px;border-radius:50%;}
+.ld.active{background:var(--primary);}
+.ld.dim{background:rgba(255,255,255,0.12);}
+
+/* ── LOGIN ── */
+.login-screen{background:var(--white);}
+.login-hero{background:var(--black);padding:20px 20px 24px;position:relative;overflow:hidden;flex-shrink:0;}
+.login-hero::before{content:'';position:absolute;top:-50px;right:-50px;width:200px;height:200px;background:radial-gradient(circle,rgba(255,69,0,0.18) 0%,transparent 70%);}
+.login-hero::after{content:'';position:absolute;bottom:-30px;left:-30px;width:150px;height:150px;background:radial-gradient(circle,rgba(255,107,53,0.08) 0%,transparent 70%);}
+.lh-logo{font-family:var(--font-brand);font-weight:900;font-size:32px;color:var(--primary);letter-spacing:-1px;position:relative;z-index:1;margin-bottom:4px;}
+.lh-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);border-radius:var(--radius-full);padding:4px 12px;font-size:10px;font-weight:700;color:rgba(255,255,255,0.5);position:relative;z-index:1;text-transform:uppercase;letter-spacing:0.08em;}
+.login-body{padding:24px 20px;flex:1;}
+.login-title{font-size:22px;font-weight:800;color:var(--black);letter-spacing:-0.3px;margin-bottom:4px;}
+.login-sub{font-size:13px;color:var(--light);margin-bottom:24px;line-height:1.5;}
+.field-label{display:block;font-size:12px;font-weight:700;color:var(--charcoal);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;}
+.phone-row{display:flex;border:1.5px solid var(--border);border-radius:var(--radius-md);overflow:hidden;margin-bottom:16px;transition:border-color 0.15s;}
+.phone-row:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(255,69,0,0.08);}
+.phone-cc{padding:0 14px;background:var(--surface);font-size:14px;font-weight:700;color:var(--charcoal);display:flex;align-items:center;gap:6px;border-right:1.5px solid var(--border);font-family:var(--font);white-space:nowrap;}
+.phone-input{flex:1;padding:13px 14px;font-family:var(--font);font-size:16px;font-weight:600;color:var(--black);border:none;outline:none;background:transparent;}
+.phone-input::placeholder{color:var(--light);font-weight:400;}
+.cta-btn{width:100%;background:var(--primary);color:var(--white);border:none;border-radius:var(--radius-full);padding:15px;font-family:var(--font);font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 16px rgba(255,69,0,0.28);margin-top:4px;}
+.divider-or{display:flex;align-items:center;gap:12px;margin:18px 0;}
+.div-line{flex:1;height:1px;background:var(--border);}
+.div-text{font-size:12px;color:var(--light);font-weight:600;}
+.social-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:13px;border:1.5px solid var(--border);border-radius:var(--radius-full);font-family:var(--font);font-size:14px;font-weight:600;color:var(--charcoal);cursor:pointer;background:var(--white);margin-bottom:10px;}
+.vendor-note{background:var(--primary-p);border:1px solid rgba(255,69,0,0.15);border-radius:var(--radius-md);padding:12px 14px;font-size:12px;color:var(--primary-d);line-height:1.6;margin-top:16px;display:flex;align-items:flex-start;gap:8px;}
+
+/* ── OTP ── */
+.otp-screen{background:var(--white);padding:24px 20px;}
+.otp-back{font-size:22px;color:var(--mid);cursor:pointer;margin-bottom:24px;display:block;}
+.otp-icon{width:60px;height:60px;background:var(--primary-p);border-radius:18px;display:flex;align-items:center;justify-content:center;margin-bottom:18px;}
+.otp-title{font-size:24px;font-weight:800;color:var(--black);letter-spacing:-0.3px;margin-bottom:6px;}
+.otp-sub{font-size:13px;color:var(--mid);line-height:1.6;margin-bottom:6px;}
+.otp-num{font-size:14px;font-weight:800;color:var(--black);margin-bottom:28px;}
+.otp-boxes{display:flex;gap:10px;margin-bottom:20px;}
+.otp-box{flex:1;height:56px;border:2px solid var(--border);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:var(--black);}
+.otp-box.filled{border-color:var(--primary);background:var(--primary-p);color:var(--primary);}
+.otp-box.active{border-color:var(--primary);box-shadow:0 0 0 4px rgba(255,69,0,0.1);}
+.resend-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;}
+.resend-timer{font-size:13px;color:var(--light);}
+.resend-btn{font-size:13px;font-weight:700;color:var(--primary);cursor:pointer;}
+
+/* ── KYC PENDING ── */
+.kyc-screen{background:var(--surface);}
+.kyc-header{background:var(--black);padding:18px 20px;flex-shrink:0;}
+.kyc-logo{font-family:var(--font-brand);font-weight:900;font-size:24px;color:var(--primary);}
+.kyc-body{padding:24px 20px;display:flex;flex-direction:column;align-items:center;text-align:center;}
+.kyc-anim{width:88px;height:88px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;}
+.kyc-pending-anim{background:var(--warning-p);border:3px solid var(--warning);}
+.kyc-approved-anim{background:var(--success-p);border:3px solid var(--success);}
+.kyc-title{font-size:22px;font-weight:800;color:var(--black);letter-spacing:-0.3px;margin-bottom:8px;}
+.kyc-sub{font-size:14px;color:var(--mid);line-height:1.7;margin-bottom:24px;max-width:280px;}
+.kyc-steps{width:100%;display:flex;flex-direction:column;gap:10px;margin-bottom:24px;}
+.kyc-step{display:flex;align-items:center;gap:12px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius-md);padding:13px 16px;}
+.kyc-step.done{border-color:rgba(34,197,94,0.25);background:var(--success-p);}
+.kyc-step.active{border-color:rgba(245,158,11,0.3);background:var(--warning-p);}
+.ks-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;}
+.ks-dot-done{background:var(--success);color:var(--white);}
+.ks-dot-active{background:var(--warning);color:var(--white);}
+.ks-dot-pending{background:var(--border);color:var(--light);}
+.ks-label{font-size:13px;font-weight:700;color:var(--charcoal);}
+.kyc-step.done .ks-label{color:#15803D;}
+.kyc-step.active .ks-label{color:#B45309;}
+.ks-sub{font-size:11px;color:var(--light);margin-top:1px;}
+.kyc-contact{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px 16px;width:100%;display:flex;align-items:center;gap:10px;}
+.kyc-contact-text{font-size:12px;color:var(--mid);line-height:1.5;flex:1;}
+.kyc-contact-btn{background:var(--primary);color:var(--white);border:none;border-radius:var(--radius-full);padding:8px 16px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
+</style>
+</head>
+<body>
+
+<!-- SVG ICON DEFS -->
+<svg class="icon-defs" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <symbol id="icon-store" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="9 22 9 12 15 12 15 22" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.73 21a2 2 0 0 1-3.46 0" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </defs>
+</svg>
+
+<!-- ══ SPLASH ══ -->
+<div class="phone-wrap">
+<div class="phone">
+  <div class="dynamic-island"></div>
+  <div class="status-bar" style="background:var(--black);">
+    <span class="sb-time" style="color:white;">9:41</span>
+    <div class="sb-icons">
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="none"><rect x="0" y="8" width="3" height="4" rx="1" fill="white" opacity="0.4"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1" fill="white" opacity="0.6"/><rect x="9" y="3" width="3" height="9" rx="1" fill="white" opacity="0.8"/><rect x="13.5" y="0" width="2.5" height="12" rx="1" fill="white"/></svg>
+      <svg width="16" height="12" viewBox="0 0 24 18" fill="none"><path d="M12 14a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z" fill="white"/><path d="M7.5 10.5C8.8 9.2 10.3 8.5 12 8.5s3.2.7 4.5 2" stroke="white" stroke-width="2" stroke-linecap="round"/><path d="M4 7c2.1-2.1 5-3.5 8-3.5s5.9 1.4 8 3.5" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.5"/></svg>
+      <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="white" stroke-opacity="0.4"/><rect x="2" y="2" width="16" height="8" rx="2" fill="white"/><path d="M23 4v4a2 2 0 0 0 0-4z" fill="white" opacity="0.4"/></svg>
+    </div>
+  </div>
+  <div class="screen splash">
+    <div class="splash-glow-1"></div>
+    <div class="splash-glow-2"></div>
+    <div class="splash-content">
+      <div class="splash-logo">ZOOK</div>
+      <div class="splash-sub">Vendor Portal</div>
+      <div class="splash-badge">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Sell · Earn · Grow
+      </div>
+      <div class="splash-loader">
+        <div class="ld active"></div><div class="ld active"></div><div class="ld dim"></div><div class="ld dim"></div>
+      </div>
+    </div>
+  </div>
+  <div class="home-bar"><div class="home-indicator" style="background:#333;"></div></div>
+</div>
+<div class="phone-label">1 · Splash</div>
+</div>
+
+<!-- ══ LOGIN ══ -->
+<div class="phone-wrap">
+<div class="phone">
+  <div class="dynamic-island"></div>
+  <div class="status-bar" style="background:var(--black);">
+    <span class="sb-time" style="color:white;">9:41</span>
+    <div class="sb-icons">
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="none"><rect x="9" y="3" width="3" height="9" rx="1" fill="white"/><rect x="13.5" y="0" width="2.5" height="12" rx="1" fill="white"/></svg>
+      <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="white" stroke-opacity="0.4"/><rect x="2" y="2" width="16" height="8" rx="2" fill="white"/></svg>
+    </div>
+  </div>
+  <div class="screen login-screen">
+    <div class="login-hero">
+      <div class="lh-logo">ZOOK</div>
+      <div class="lh-badge">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Vendor Portal
+      </div>
+    </div>
+    <div class="login-body">
+      <div class="login-title">Welcome back 👋</div>
+      <div class="login-sub">Sign in to manage your store, orders and payouts.</div>
+      <label class="field-label">Mobile number</label>
+      <div class="phone-row">
+        <div class="phone-cc">🇦🇪 +971</div>
+        <input class="phone-input" placeholder="50 000 0000" type="tel">
+      </div>
+      <button class="cta-btn">Continue with OTP →</button>
+      <div class="divider-or">
+        <div class="div-line"></div>
+        <div class="div-text">or</div>
+        <div class="div-line"></div>
+      </div>
+      <button class="social-btn">🍎 Continue with Apple</button>
+      <button class="social-btn">🔵 Continue with Google</button>
+      <div class="vendor-note">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;color:var(--primary);margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>New vendor? <strong>Register on zook.ae/vendor</strong> first — your account will appear here once KYC is approved.</span>
+      </div>
+    </div>
+  </div>
+  <div class="home-bar"><div class="home-indicator"></div></div>
+</div>
+<div class="phone-label">2 · Login</div>
+</div>
+
+<!-- ══ OTP ══ -->
+<div class="phone-wrap">
+<div class="phone">
+  <div class="dynamic-island"></div>
+  <div class="status-bar"><span class="sb-time">9:41</span><div class="sb-icons"></div></div>
+  <div class="screen otp-screen">
+    <span class="otp-back">←</span>
+    <div class="otp-icon">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke-width="3"/></svg>
+    </div>
+    <div class="otp-title">Verify your number</div>
+    <div class="otp-sub">We sent a 4-digit code to</div>
+    <div class="otp-num">+971 50 123 4567</div>
+    <div class="otp-boxes">
+      <div class="otp-box filled">7</div>
+      <div class="otp-box filled">3</div>
+      <div class="otp-box active"></div>
+      <div class="otp-box"></div>
+    </div>
+    <div class="resend-row">
+      <div class="resend-timer">⏱ Resend in 0:38</div>
+      <div class="resend-btn">Resend OTP</div>
+    </div>
+    <button class="cta-btn">Verify & Enter Store →</button>
+  </div>
+  <div class="home-bar"><div class="home-indicator"></div></div>
+</div>
+<div class="phone-label">3 · OTP</div>
+</div>
+
+<!-- ══ KYC PENDING ══ -->
+<div class="phone-wrap">
+<div class="phone">
+  <div class="dynamic-island"></div>
+  <div class="status-bar" style="background:var(--black);"><span class="sb-time" style="color:white;">9:41</span><div class="sb-icons"></div></div>
+  <div class="screen kyc-screen">
+    <div class="kyc-header"><div class="kyc-logo">ZOOK</div></div>
+    <div class="scrollable">
+      <div class="kyc-body">
+        <div class="kyc-anim kyc-pending-anim">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="kyc-title">Application under review</div>
+        <div class="kyc-sub">Our team is verifying your documents. You'll be notified by email and SMS once approved — usually within 24 hours.</div>
+        <div class="kyc-steps">
+          <div class="kyc-step done">
+            <div class="ks-dot ks-dot-done">✓</div>
+            <div><div class="ks-label">Account created</div><div class="ks-sub">Email & phone verified</div></div>
+          </div>
+          <div class="kyc-step done">
+            <div class="ks-dot ks-dot-done">✓</div>
+            <div><div class="ks-label">Documents submitted</div><div class="ks-sub">Trade license, Emirates ID</div></div>
+          </div>
+          <div class="kyc-step active">
+            <div class="ks-dot ks-dot-active">⏳</div>
+            <div><div class="ks-label">Admin reviewing</div><div class="ks-sub">Usually within 24 hours</div></div>
+          </div>
+          <div class="kyc-step" style="opacity:0.5;">
+            <div class="ks-dot ks-dot-pending">4</div>
+            <div><div class="ks-label">Store approved</div><div class="ks-sub">Start listing & earning</div></div>
+          </div>
+        </div>
+        <div class="kyc-contact">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--mid)" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 6 6l.81-.81a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          <div class="kyc-contact-text">Questions? Our vendor support team is available 9 AM – 6 PM.</div>
+          <button class="kyc-contact-btn">Chat</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="home-bar"><div class="home-indicator"></div></div>
+</div>
+<div class="phone-label">4 · KYC Pending</div>
+</div>
+
+</body>
+</html>
