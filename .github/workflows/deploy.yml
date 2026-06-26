@@ -20,6 +20,10 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Secrets (AZURE_HOST, AZURE_USER, AZURE_SSH_KEY, AZURE_DEPLOY_PATH) live in
+    # the "AZURE_HOST" environment, so the job must opt into that environment to
+    # read them. Without this line they resolve to empty and the deploy fails.
+    environment: AZURE_HOST
     steps:
       - name: Check required secrets are present
         env:
