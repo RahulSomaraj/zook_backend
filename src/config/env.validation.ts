@@ -52,6 +52,10 @@ export const envValidationSchema = Joi.object({
   THROTTLE_TTL: Joi.number().default(60000),
   THROTTLE_LIMIT: Joi.number().default(100),
 
+  // Firebase service-account JSON (stringified). Required for FCM push;
+  // when absent the sender degrades gracefully (logs a warning, skips push).
+  FIREBASE_SERVICE_ACCOUNT: Joi.string().allow('').optional(),
+
   // Leave unset to default Swagger on outside production and off in production.
   SWAGGER_ENABLED: Joi.boolean().optional(),
   SWAGGER_PATH: Joi.string().default('docs'),

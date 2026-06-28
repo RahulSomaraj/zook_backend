@@ -72,6 +72,11 @@ export default () => ({
     ttl: parseInt(process.env.THROTTLE_TTL ?? '60000', 10),
     limit: parseInt(process.env.THROTTLE_LIMIT ?? '100', 10),
   },
+  firebase: {
+    // Service-account JSON (stringify the downloaded .json file into one line).
+    // Required for FCM push. When absent, FcmPushSender logs a warning and skips.
+    serviceAccount: process.env.FIREBASE_SERVICE_ACCOUNT,
+  },
   swagger: {
     // Explicit env wins; otherwise on outside production, off in production.
     enabled:
