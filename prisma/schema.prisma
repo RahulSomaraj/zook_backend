@@ -97,6 +97,8 @@ model User {
   admin         Admin?
   identities    AuthIdentity[]
   refreshTokens RefreshToken[]
+  // Push notification device tokens (FCM) for this user's installs.
+  deviceTokens DeviceToken[]
   // KYC records this user reviewed in their admin capacity.
   reviewedKyc VendorKyc[] @relation("KycReviewer")
 
@@ -294,4 +296,30 @@ model PhoneVerification {
   @@index([phone])
   @@index([expiresAt])
   @@map("phone_verifications")
+}
+
+// ── Push notification device tokens ────────────────────────────────────
+// One row per app install/device that opted into push. Powers FCM delivery
+// of onboarding-approval notifications when the mobile app is backgrounded
+// or closed (Supabase Realtime only reaches connected, foregrounded apps).
+// The `token` is the FCM registration token; it's unique and refreshed by
+// the client. Rows are pruned when FCM reports a token as unregistered.
+model DeviceToken {
+  id        String         @id @default(uuid()) @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  token     String         @unique // FCM registration token
+  platform  DevicePlatform
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+enum DevicePlatform {
+  ios
+  android
+  web
 }

@@ -3,12 +3,20 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { KycStatus } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
+import {
+  ONBOARDING_STEP_CHANGED,
+  OnboardingStepChangedEvent,
+} from '../realtime/onboarding-events';
 
 @Injectable()
 export class AdminKycService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventEmitter2,
+  ) {}
 
   /** Pending KYC submissions awaiting admin review. */
   async listPending() {
@@ -46,6 +54,9 @@ export class AdminKycService {
       },
     });
 
+    // Emit AFTER the write commits so we never notify on a rolled-back state.
+    this.emitStepChanged(kyc.vendorId, kyc.vendor.userId, 'approved', null, kyc.id);
+
     return { id: kyc.id, status: KycStatus.approved };
   }
 
@@ -63,12 +74,36 @@ export class AdminKycService {
       },
     });
 
+    this.emitStepChanged(kyc.vendorId, kyc.vendor.userId, 'rejected', reason, kyc.id);
+
     return { id: kyc.id, status: KycStatus.rejected };
+  }
+
+  /** Build and publish the onboarding `kyc` step-change event. */
+  private emitStepChanged(
+    vendorId: string,
+    userId: string,
+    status: 'approved' | 'rejected',
+    reason: string | null,
+    kycId: string,
+  ): void {
+    const event: OnboardingStepChangedEvent = {
+      userId,
+      vendorId,
+      step: 'kyc',
+      status,
+      reason,
+      kycId,
+      occurredAt: new Date().toISOString(),
+    };
+    this.events.emit(ONBOARDING_STEP_CHANGED, event);
   }
 
   private async getReviewableOrThrow(kycId: string) {
     const kyc = await this.prisma.vendorKyc.findUnique({
       where: { id: kycId },
+      // Pull the owning vendor's user id so we can target the notification.
+      include: { vendor: { select: { userId: true } } },
     });
     if (!kyc) throw new NotFoundException('KYC submission not found');
     if (kyc.status !== KycStatus.pending) {

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -13,6 +14,7 @@ import { StorageModule } from './storage/storage.module';
 import { OtpModule } from './otp/otp.module';
 import { VendorsModule } from './vendors/vendors.module';
 import { AdminModule } from './admin/admin.module';
+import { RealtimeModule } from './realtime/realtime.module';
 
 @Module({
   imports: [
@@ -33,6 +35,9 @@ import { AdminModule } from './admin/admin.module';
         ],
       }),
     }),
+    // In-process pub/sub used to decouple approval actions from notification
+    // delivery (OnboardingNotifier listens for `onboarding.step_changed`).
+    EventEmitterModule.forRoot(),
     LoggerModule,
     PrismaModule,
     StorageModule,
@@ -40,6 +45,7 @@ import { AdminModule } from './admin/admin.module';
     AuthModule,
     VendorsModule,
     AdminModule,
+    RealtimeModule,
   ],
   controllers: [AppController],
   providers: [

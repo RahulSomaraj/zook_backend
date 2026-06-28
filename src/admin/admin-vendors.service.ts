@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   KycStatus,
   Prisma,
@@ -12,13 +13,20 @@ import {
 import { buildMeta } from '../common/dto/pagination.dto';
 import { normalizePhone } from '../common/utils/phone.util';
 import { PrismaService } from '../database/prisma.service';
+import {
+  ONBOARDING_STEP_CHANGED,
+  OnboardingStepChangedEvent,
+} from '../realtime/onboarding-events';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { ListVendorsQueryDto } from './dto/list-vendors.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 
 @Injectable()
 export class AdminVendorsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventEmitter2,
+  ) {}
 
   /** Paginated, filterable, searchable vendor list. Hides archived rows unless asked. */
   async list(query: ListVendorsQueryDto) {
@@ -154,10 +162,24 @@ export class AdminVendorsService {
       );
     }
 
-    return this.prisma.vendor.update({
+    const updated = await this.prisma.vendor.update({
       where: { id },
       data: { status: VendorStatus.approved },
     });
+
+    // Notify the vendor that the final onboarding step (store activation) is done.
+    const event: OnboardingStepChangedEvent = {
+      userId: vendor.userId,
+      vendorId: vendor.id,
+      step: 'store_activation',
+      status: 'approved',
+      reason: null,
+      kycId: null,
+      occurredAt: new Date().toISOString(),
+    };
+    this.events.emit(ONBOARDING_STEP_CHANGED, event);
+
+    return updated;
   }
 
   /** Suspend a vendor's store. */
