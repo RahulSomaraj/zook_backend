@@ -104,6 +104,7 @@ export class AuthService {
       roles: Role[];
       adminLevel: string | null;
       isVerified: boolean | null;
+      storeName: string | null;
     };
   }> {
     const user = await this.prisma.user.findUnique({
@@ -132,6 +133,7 @@ export class AuthService {
     const isVerified = roles.includes(Role.VENDOR)
       ? (user.vendor?.status as string) === 'approved'
       : null;
+    const storeName = user.vendor?.storeName ?? null;
 
     const tokens = await this.tokens.issueTokens({
       id: user.id,
@@ -149,6 +151,7 @@ export class AuthService {
         roles,
         adminLevel,
         isVerified,
+        storeName,
       },
     };
   }
@@ -162,6 +165,7 @@ export class AuthService {
       roles: Role[];
       adminLevel: string | null;
       isVerified: boolean | null;
+      storeName: string | null;
     };
   }): AuthTokensDto {
     return {

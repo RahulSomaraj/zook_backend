@@ -74,6 +74,14 @@ enum AdminLevel {
   super_admin // L3 — full platform control
 }
 
+// Lifecycle of a master catalog entry. `active` rows are visible to vendors
+// when they add listings; `draft` rows are hidden from vendor search until an
+// admin publishes them.
+enum CatalogStatus {
+  active
+  draft
+}
+
 // ── Models ─────────────────────────────────────────────────────────────
 
 model User {
@@ -222,20 +230,74 @@ model VendorKyc {
   @@map("vendor_kyc")
 }
 
+// A manufacturer/brand (e.g. Apple, Samsung). Normalized out of ProductCatalog
+// so the admin can manage the vendor-facing dropdown without a deploy and so
+// spellings stay consistent. Soft-deletable; `isActive` toggles dropdown
+// visibility without archiving.
+model Brand {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @unique
+  slug      String    @unique
+  logoUrl   String?   @map("logo_url")
+  isActive  Boolean   @default(true) @map("is_active")
+  sortOrder Int       @default(0) @map("sort_order")
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  catalog ProductCatalog[]
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("brands")
+}
+
+// A product category (e.g. Smartphones, Laptops). Same rationale as Brand;
+// `icon` holds the emoji/glyph the admin UI shows beside each category.
+model Category {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @unique
+  slug      String    @unique
+  icon      String?
+  isActive  Boolean   @default(true) @map("is_active")
+  sortOrder Int       @default(0) @map("sort_order")
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  catalog ProductCatalog[]
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("categories")
+}
+
 model ProductCatalog {
-  id            String   @id @default(uuid()) @db.Uuid
-  brand         String
+  id            String        @id @default(uuid()) @db.Uuid
+  brandId       String        @map("brand_id") @db.Uuid
   model         String
   year          Int?
-  category      String
-  stockImageUrl String?  @map("stock_image_url") // official manufacturer photo
-  specs         Json? // storage, display, battery...
-  createdAt     DateTime @default(now()) @map("created_at")
+  categoryId    String        @map("category_id") @db.Uuid
+  stockImageUrl String?       @map("stock_image_url") // official manufacturer photo
+  // Free-form variant + spec data shown to buyers. Conventionally:
+  //   { "storage": [...], "colors": [...], "keySpecs": [...] }
+  specs         Json?
+  description   String?
+  status        CatalogStatus @default(active)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  // Soft delete: a non-null value archives the entry and hides it from normal
+  // queries (restorable by clearing the column), mirroring the Vendor model.
+  deletedAt     DateTime?     @map("deleted_at")
 
+  // Brand/category are restricted on delete: they are soft-deleted, so a
+  // referenced row always still exists and listings are never orphaned.
+  brand    Brand    @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   products Product[]
 
-  @@unique([brand, model, year])
-  @@index([category])
+  @@unique([brandId, model, year])
+  @@index([categoryId])
+  @@index([brandId])
+  @@index([status])
+  @@index([deletedAt])
   @@map("product_catalog")
 }
 

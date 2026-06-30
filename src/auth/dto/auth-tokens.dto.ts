@@ -19,6 +19,9 @@ export class AuthUserDto {
 
   @ApiProperty({ nullable: true, description: 'Vendor-only. true = onboarding complete, null for non-vendors.' })
   isVerified!: boolean | null;
+
+  @ApiProperty({ nullable: true, description: 'Vendor-only store name, null for non-vendors.' })
+  storeName!: string | null;
 }
 
 export class AuthTokensDto {

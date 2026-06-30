@@ -79,6 +79,7 @@ export class VendorAuthService {
       const isVerified = user.vendor
         ? user.vendor.status === VendorStatus.approved
         : null;
+      const storeName = user.vendor?.storeName ?? null;
       const tokens = await this.tokens.issueTokens({
         id: user.id,
         email: user.email,
@@ -94,6 +95,7 @@ export class VendorAuthService {
           roles,
           adminLevel: user.admin?.level ?? null,
           isVerified,
+          storeName,
         }),
       };
     }
@@ -151,6 +153,7 @@ export class VendorAuthService {
       roles: [Role.VENDOR],
       adminLevel: null,
       isVerified: false,
+      storeName: dto.storeName,
     });
   }
 
@@ -193,6 +196,7 @@ export class VendorAuthService {
       roles: Role[];
       adminLevel: string | null;
       isVerified: boolean | null;
+      storeName: string | null;
     },
   ): AuthTokensDto {
     return {
