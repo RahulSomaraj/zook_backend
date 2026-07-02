@@ -38,7 +38,7 @@ const topic = `onboarding:${TEST_USER_ID}`;
 const token = jwt.sign(
   { sub: TEST_USER_ID, role: 'authenticated', aud: 'authenticated' },
   SUPABASE_JWT_SECRET,
-  { expiresIn: '5m' },
+  { expiresIn: '60m' },
 );
 
 // 2) client with anon key + the minted token

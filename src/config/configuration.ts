@@ -77,6 +77,12 @@ export default () => ({
     // Required for FCM push. When absent, FcmPushSender logs a warning and skips.
     serviceAccount: process.env.FIREBASE_SERVICE_ACCOUNT,
   },
+  payments: {
+    // Mamo Pay processing-fee rate applied to each sale, as a fraction (0.029 =
+    // 2.9%). Snapshotted into each sub-order's processing_fee at sale time so
+    // historical payouts don't move if the rate later changes. See payout.util.
+    mamoFeeRate: parseFloat(process.env.MAMO_FEE_RATE ?? '0.029'),
+  },
   swagger: {
     // Explicit env wins; otherwise on outside production, off in production.
     enabled:

@@ -82,6 +82,25 @@ enum CatalogStatus {
   draft
 }
 
+// Sub-order fulfilment state machine (shared by the vendor + admin order flows).
+enum OrderStatus {
+  confirmed // paid, awaiting packing
+  preparing // vendor packing / uploading photos
+  ready // photos verified, awaiting courier pickup
+  shipped // in transit
+  delivered
+  cancelled
+}
+
+// Lifecycle of a vendor payout for a delivered sub-order.
+enum PayoutStatus {
+  pending // not yet earned (order not delivered)
+  ready // delivered, VCC issuable
+  held // frozen by fraud/strike action
+  issued // VCC created via Mamo
+  redeemed
+}
+
 // ── Models ─────────────────────────────────────────────────────────────
 
 model User {
@@ -161,9 +180,10 @@ model Vendor {
   // queries. Restored by clearing this back to null.
   deletedAt      DateTime?    @map("deleted_at")
 
-  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  kyc      VendorKyc[]
-  products Product[]
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kyc       VendorKyc[]
+  products  Product[]
+  subOrders SubOrder[]
 
   @@index([status])
   @@index([deletedAt])
@@ -317,13 +337,84 @@ model Product {
   isActive         Boolean        @default(true) @map("is_active")
   createdAt        DateTime       @default(now()) @map("created_at")
 
-  vendor  Vendor?        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  catalog ProductCatalog @relation(fields: [catalogId], references: [id])
+  vendor    Vendor?        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  catalog   ProductCatalog @relation(fields: [catalogId], references: [id])
+  subOrders SubOrder[]
 
   @@index([vendorId])
   @@index([catalogId])
   @@index([isActive])
   @@map("products")
+}
+
+// ── Orders ─────────────────────────────────────────────────────────────
+// One parent Order per checkout, split into one SubOrder per product per
+// vendor (the admin-facing unit). Rates are snapshotted onto the sub-order at
+// sale time so historical payouts never move when a vendor's rate changes.
+
+model Order {
+  id                  String    @id @default(uuid()) @db.Uuid
+  orderNumber         String    @unique @map("order_number") // human ref e.g. ORD-041
+  customerId          String    @map("customer_id") @db.Uuid // users.id
+  addressId           String?   @map("address_id") @db.Uuid // CustomerAddress (Gap F)
+  subtotal            Decimal   @db.Decimal(10, 2)
+  deliveryFee         Decimal   @default(0) @map("delivery_fee") @db.Decimal(10, 2)
+  totalAmount         Decimal   @map("total_amount") @db.Decimal(10, 2)
+  paymentId           String?   @map("payment_id") @db.Uuid // Payment row (Gap F)
+  estimatedDeliveryAt DateTime? @map("estimated_delivery_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  subOrders SubOrder[]
+
+  @@index([customerId])
+  @@map("orders")
+}
+
+model SubOrder {
+  id                 String       @id @default(uuid()) @db.Uuid
+  subOrderNumber     String       @unique @map("sub_order_number")
+  orderId            String       @map("order_id") @db.Uuid
+  vendorId           String?      @map("vendor_id") @db.Uuid // null for C2C
+  productId          String       @map("product_id") @db.Uuid
+  status             OrderStatus  @default(confirmed)
+  salePrice          Decimal      @map("sale_price") @db.Decimal(10, 2)
+  commissionRate     Decimal      @map("commission_rate") @db.Decimal(5, 2) // snapshot at sale time
+  processingFee      Decimal      @map("processing_fee") @db.Decimal(10, 2) // Mamo ~2.9%
+  payoutAmount       Decimal      @map("payout_amount") @db.Decimal(10, 2)
+  payoutStatus       PayoutStatus @default(pending) @map("payout_status")
+  courierName        String?      @map("courier_name") // Porter.ae, Jeebly…
+  awbNumber          String?      @map("awb_number")
+  packPhotoBeforeUrl String?      @map("pack_photo_before_url")
+  packPhotoAfterUrl  String?      @map("pack_photo_after_url")
+  deliveredAt        DateTime?    @map("delivered_at")
+  cancelledAt        DateTime?    @map("cancelled_at")
+  createdAt          DateTime     @default(now()) @map("created_at")
+
+  order         Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  vendor        Vendor?                 @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  product       Product                 @relation(fields: [productId], references: [id])
+  statusHistory SubOrderStatusHistory[]
+
+  @@index([status])
+  @@index([vendorId])
+  @@index([payoutStatus])
+  @@index([createdAt])
+  @@map("sub_orders")
+}
+
+// Append-only ledger powering timelines + "time in status" on the admin table.
+model SubOrderStatusHistory {
+  id         String      @id @default(uuid()) @db.Uuid
+  subOrderId String      @map("sub_order_id") @db.Uuid
+  status     OrderStatus
+  actorId    String?     @map("actor_id") @db.Uuid // user who caused it (vendor/admin/system=null)
+  note       String?
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  subOrder SubOrder @relation(fields: [subOrderId], references: [id], onDelete: Cascade)
+
+  @@index([subOrderId])
+  @@map("sub_order_status_history")
 }
 
 // ── Refresh token store ────────────────────────────────────────────────

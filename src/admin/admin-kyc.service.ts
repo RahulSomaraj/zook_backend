@@ -5,7 +5,9 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { KycStatus } from '@prisma/client';
+import { buildMeta } from '../common/dto/pagination.dto';
 import { PrismaService } from '../database/prisma.service';
+import { ListKycQueryDto } from './dto/list-kyc.dto';
 import {
   ONBOARDING_STEP_CHANGED,
   OnboardingStepChangedEvent,
@@ -18,22 +20,30 @@ export class AdminKycService {
     private readonly events: EventEmitter2,
   ) {}
 
-  /** Pending KYC submissions awaiting admin review. */
-  async listPending() {
-    const items = await this.prisma.vendorKyc.findMany({
-      where: { status: KycStatus.pending },
-      orderBy: { createdAt: 'asc' },
-      include: {
-        vendor: {
-          select: {
-            id: true,
-            storeName: true,
-            user: { select: { fullName: true, email: true, phone: true } },
+  /** KYC submissions for admin review, paginated (defaults to pending). */
+  async list(query: ListKycQueryDto) {
+    const where = { status: query.status ?? KycStatus.pending };
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.vendorKyc.count({ where }),
+      this.prisma.vendorKyc.findMany({
+        where,
+        orderBy: { createdAt: 'asc' },
+        skip: query.skip,
+        take: query.limit,
+        include: {
+          vendor: {
+            select: {
+              id: true,
+              storeName: true,
+              user: { select: { fullName: true, email: true, phone: true } },
+            },
           },
         },
-      },
-    });
-    return { count: items.length, items };
+      }),
+    ]);
+
+    return { items, meta: buildMeta(total, query.page, query.limit) };
   }
 
   /**

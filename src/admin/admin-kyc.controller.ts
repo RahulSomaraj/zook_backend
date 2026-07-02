@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -7,6 +15,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums/role.enum';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { AdminKycService } from './admin-kyc.service';
+import { ListKycQueryDto } from './dto/list-kyc.dto';
 import { RejectKycDto } from './dto/reject-kyc.dto';
 
 @ApiTags('admin-kyc')
@@ -18,9 +27,11 @@ export class AdminKycController {
   constructor(private readonly adminKyc: AdminKycService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List vendor KYC submissions pending review' })
-  listPending() {
-    return this.adminKyc.listPending();
+  @ApiOperation({
+    summary: 'List vendor KYC submissions (paginated; filter by status, default pending)',
+  })
+  list(@Query() query: ListKycQueryDto) {
+    return this.adminKyc.list(query);
   }
 
   @Post(':id/approve')

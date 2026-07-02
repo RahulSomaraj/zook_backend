@@ -56,6 +56,10 @@ export const envValidationSchema = Joi.object({
   // when absent the sender degrades gracefully (logs a warning, skips push).
   FIREBASE_SERVICE_ACCOUNT: Joi.string().allow('').optional(),
 
+  // Mamo Pay processing-fee rate as a fraction (0.029 = 2.9%). Used to compute
+  // the gateway cut on each payout. Defaults to 2.9% when unset.
+  MAMO_FEE_RATE: Joi.number().min(0).max(1).default(0.029),
+
   // Leave unset to default Swagger on outside production and off in production.
   SWAGGER_ENABLED: Joi.boolean().optional(),
   SWAGGER_PATH: Joi.string().default('docs'),

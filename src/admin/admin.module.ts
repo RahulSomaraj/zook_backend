@@ -7,12 +7,15 @@ import { AdminCategoriesController } from './admin-categories.controller';
 import { AdminCategoriesService } from './admin-categories.service';
 import { AdminKycController } from './admin-kyc.controller';
 import { AdminKycService } from './admin-kyc.service';
+import { AdminOrdersController } from './admin-orders.controller';
+import { AdminOrdersService } from './admin-orders.service';
 import { AdminVendorsController } from './admin-vendors.controller';
 import { AdminVendorsService } from './admin-vendors.service';
 
 @Module({
   controllers: [
     AdminKycController,
+    AdminOrdersController,
     AdminVendorsController,
     AdminCatalogController,
     AdminBrandsController,
@@ -20,6 +23,7 @@ import { AdminVendorsService } from './admin-vendors.service';
   ],
   providers: [
     AdminKycService,
+    AdminOrdersService,
     AdminVendorsService,
     AdminCatalogService,
     AdminBrandsService,
