@@ -6,10 +6,12 @@ import { VendorAuthService } from './vendor-auth.service';
 import { VendorsController } from './vendors.controller';
 import { VendorsService } from './vendors.service';
 import { PhoneVerifyGuard } from './guards/phone-verify.guard';
+import { ListingsController } from './listings/listings.controller';
+import { ListingsService } from './listings/listings.service';
 
 @Module({
   imports: [AuthModule, OtpModule],
-  controllers: [VendorAuthController, VendorsController],
-  providers: [VendorAuthService, VendorsService, PhoneVerifyGuard],
+  controllers: [VendorAuthController, VendorsController, ListingsController],
+  providers: [VendorAuthService, VendorsService, PhoneVerifyGuard, ListingsService],
 })
 export class VendorsModule {}

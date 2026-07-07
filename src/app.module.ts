@@ -15,6 +15,7 @@ import { OtpModule } from './otp/otp.module';
 import { VendorsModule } from './vendors/vendors.module';
 import { AdminModule } from './admin/admin.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { CatalogModule } from './catalog/catalog.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { RealtimeModule } from './realtime/realtime.module';
     VendorsModule,
     AdminModule,
     RealtimeModule,
+    CatalogModule,
   ],
   controllers: [AppController],
   providers: [
