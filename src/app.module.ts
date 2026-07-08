@@ -16,6 +16,7 @@ import { VendorsModule } from './vendors/vendors.module';
 import { AdminModule } from './admin/admin.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { CustomerAuthModule } from './customers/customer-auth/customer-auth.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { CatalogModule } from './catalog/catalog.module';
     AdminModule,
     RealtimeModule,
     CatalogModule,
+    CustomerAuthModule,
   ],
   controllers: [AppController],
   providers: [

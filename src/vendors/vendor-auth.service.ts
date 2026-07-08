@@ -60,7 +60,7 @@ export class VendorAuthService {
    */
   async verifyOtp(rawPhone: string, code: string): Promise<VerifyOtpResult> {
     const phone = normalizePhone(rawPhone);
-    const ok = await this.otp.verify(phone, code);
+    const ok = await this.otp.verify(phone, code, 'vendor_auth');
     if (!ok) throw new UnauthorizedException('Invalid or expired code');
 
     const user = await this.prisma.user.findFirst({

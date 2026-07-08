@@ -52,9 +52,18 @@ export class OtpService {
     };
   }
 
-  async verify(phone: string, code: string): Promise<boolean> {
+  async verify(
+    phone: string,
+    code: string,
+    purpose = 'vendor_auth',
+  ): Promise<boolean> {
     const record = await this.prisma.phoneVerification.findFirst({
-      where: { phone, consumedAt: null, expiresAt: { gt: new Date() } },
+      where: {
+        phone,
+        purpose,
+        consumedAt: null,
+        expiresAt: { gt: new Date() },
+      },
       orderBy: { createdAt: 'desc' },
     });
     if (!record || record.attempts >= this.maxAttempts) return false;
