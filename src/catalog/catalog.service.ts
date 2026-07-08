@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { CatalogStatus } from '@prisma/client';
+import { CatalogStatus, ConditionGrade } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { SearchCatalogDto } from './dto/search-catalog.dto';
 
@@ -41,5 +41,28 @@ export class CatalogService {
     });
     if (!item) throw new NotFoundException('Catalog item not found');
     return item;
+  }
+
+  async getPriceSuggestion(catalogId: string, conditionGrade?: ConditionGrade) {
+    await this.findOne(catalogId); // throws 404 if catalog item doesn't exist
+
+    const where: any = { catalogId, isActive: true };
+    if (conditionGrade) where.conditionGrade = conditionGrade;
+
+    const agg = await this.prisma.product.aggregate({
+      where,
+      _min: { price: true },
+      _max: { price: true },
+      _count: true,
+    });
+
+    return {
+      catalogId,
+      conditionGrade: conditionGrade ?? null,
+      min: agg._min.price,
+      max: agg._max.price,
+      sampleSize: agg._count,
+      currency: 'AED',
+    };
   }
 }

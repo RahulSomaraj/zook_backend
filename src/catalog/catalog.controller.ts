@@ -1,5 +1,6 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ConditionGrade } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums/role.enum';
@@ -25,5 +26,14 @@ export class CatalogController {
   @ApiOperation({ summary: 'Catalog item detail (brand, category, specs)' })
   findOne(@Param('id') id: string) {
     return this.catalog.findOne(id);
+  }
+
+  @Get(':id/price-suggestion')
+  @ApiOperation({ summary: 'Suggested price range from similar active listings' })
+  getPriceSuggestion(
+    @Param('id') id: string,
+    @Query('condition_grade') conditionGrade?: ConditionGrade,
+  ) {
+    return this.catalog.getPriceSuggestion(id, conditionGrade);
   }
 }
