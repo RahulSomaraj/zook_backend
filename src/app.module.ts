@@ -17,6 +17,7 @@ import { AdminModule } from './admin/admin.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { CustomerAuthModule } from './customers/customer-auth/customer-auth.module';
+import { CategoriesModule } from './customers/customer-categories/categories.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { CustomerAuthModule } from './customers/customer-auth/customer-auth.modu
     RealtimeModule,
     CatalogModule,
     CustomerAuthModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [
