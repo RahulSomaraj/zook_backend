@@ -66,6 +66,29 @@ export class AdminCatalogService {
     return entry;
   }
 
+  async getPriceSuggestion(catalogId: string, conditionGrade?: string) {
+    await this.getById(catalogId); // throws 404 if not found
+
+    const where: Prisma.ProductWhereInput = { catalogId, isActive: true };
+    if (conditionGrade) where.conditionGrade = conditionGrade as any;
+
+    const agg = await this.prisma.product.aggregate({
+      where,
+      _min: { price: true },
+      _max: { price: true },
+      _count: true,
+    });
+
+    return {
+      catalogId,
+      conditionGrade: conditionGrade ?? null,
+      min: agg._min.price,
+      max: agg._max.price,
+      sampleSize: agg._count,
+      currency: 'AED',
+    };
+  }
+
   async create(dto: CreateCatalogProductDto) {
     await this.assertBrandExists(dto.brandId);
     await this.assertCategoryExists(dto.categoryId);

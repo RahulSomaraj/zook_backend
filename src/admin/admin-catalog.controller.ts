@@ -48,6 +48,15 @@ export class AdminCatalogController {
     return this.catalog.getById(id);
   }
 
+  @Get(':id/price-suggestion')
+  @ApiOperation({ summary: 'Suggested price range from active vendor listings' })
+  getPriceSuggestion(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('condition_grade') conditionGrade?: string,
+  ) {
+    return this.catalog.getPriceSuggestion(id, conditionGrade);
+  }
+
   @Patch(':id')
   @ApiOperation({ summary: 'Update catalog product fields' })
   update(
