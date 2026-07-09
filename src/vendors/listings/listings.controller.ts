@@ -41,6 +41,12 @@ export class ListingsController {
     return this.listings.findAll(user.id, query);
   }
 
+  @Get('pickup-address')
+  @ApiOperation({ summary: "Vendor's pickup address (from store profile)" })
+  getPickupAddress(@CurrentUser() user: AuthenticatedUser) {
+   return this.listings.getPickupAddress(user.id);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Single listing detail' })
   findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
@@ -62,4 +68,6 @@ export class ListingsController {
   remove(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.listings.remove(user.id, id);
   }
+
+  
 }

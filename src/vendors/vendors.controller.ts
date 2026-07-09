@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Post, UseGuards, Patch } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -8,6 +8,7 @@ import { Role } from '../common/enums/role.enum';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { SubmitKycDto } from './dto/submit-kyc.dto';
 import { VendorsService } from './vendors.service';
+import { UpdateVendorProfileDto } from './dto/update-vendor-profile.dto';
 
 @ApiTags('vendors')
 @ApiBearerAuth('access-token')
@@ -39,5 +40,13 @@ export class VendorsController {
   @ApiOperation({ summary: 'Close (soft-delete) the authenticated vendor account' })
   deleteMe(@CurrentUser() user: AuthenticatedUser) {
     return this.vendors.deleteMe(user.id);
+  }
+
+  @Patch('me')
+  @ApiOperation({ summary: 'Update store profile (store info + owner name/email)' })
+  updateProfile(
+  @CurrentUser() user: AuthenticatedUser,
+  @Body() dto: UpdateVendorProfileDto,) {
+    return this.vendors.updateProfile(user.id, dto);
   }
 }

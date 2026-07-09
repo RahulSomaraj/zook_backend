@@ -6,6 +6,7 @@ import {
 import { KycStatus, VendorStatus } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { SubmitKycDto } from './dto/submit-kyc.dto';
+import { UpdateVendorProfileDto } from './dto/update-vendor-profile.dto';
 
 export type StepStatus = 'done' | 'active' | 'pending' | 'rejected';
 
@@ -14,25 +15,33 @@ export class VendorsService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** Vendor profile for the authenticated user (store + latest KYC). */
-  async getMe(userId: string) {
-    const vendor = await this.findVendorOrThrow(userId);
-    const latestKyc = await this.prisma.vendorKyc.findFirst({
-      where: { vendorId: vendor.id },
-      orderBy: { createdAt: 'desc' },
-    });
-    return {
-      id: vendor.id,
-      storeName: vendor.storeName,
-      status: vendor.status,
-      commissionRate: vendor.commissionRate,
-      storeAddress: vendor.storeAddress,
-      createdAt: vendor.createdAt,
-      deletedAt: vendor.deletedAt,
-      kyc: latestKyc
-        ? { status: latestKyc.status, submittedAt: latestKyc.createdAt }
-        : null,
-    };
-  }
+ async getMe(userId: string) {
+  const vendor = await this.findVendorOrThrow(userId);
+  const user = await this.prisma.user.findUnique({
+    where: { id: userId },
+    select: { fullName: true, email: true },
+  });
+  const latestKyc = await this.prisma.vendorKyc.findFirst({
+    where: { vendorId: vendor.id },
+    orderBy: { createdAt: 'desc' },
+  });
+  return {
+    id: vendor.id,
+    storeName: vendor.storeName,
+    status: vendor.status,
+    commissionRate: vendor.commissionRate,
+    storeAddress: vendor.storeAddress,
+    pickupLat: vendor.pickupLat,
+    pickupLng: vendor.pickupLng,
+    ownerFullName: user?.fullName ?? null,
+    ownerEmail: user?.email ?? null,
+    createdAt: vendor.createdAt,
+    deletedAt: vendor.deletedAt,
+    kyc: latestKyc
+      ? { status: latestKyc.status, submittedAt: latestKyc.createdAt }
+      : null,
+  };
+}
 
   /** Submit (or resubmit) KYC documents; sets the vendor's KYC to pending. */
   async submitKyc(userId: string, dto: SubmitKycDto) {
@@ -123,4 +132,33 @@ export class VendorsService {
     if (!vendor) throw new NotFoundException('Vendor profile not found');
     return vendor;
   }
+
+  async updateProfile(userId: string, dto: UpdateVendorProfileDto) {
+  const vendor = await this.findVendorOrThrow(userId);
+
+  const [updatedVendor] = await this.prisma.$transaction([
+    this.prisma.vendor.update({
+      where: { id: vendor.id },
+      data: {
+        storeName: dto.storeName,
+        storeAddress: dto.storeAddress,
+        pickupLat: dto.pickupLat,
+        pickupLng: dto.pickupLng,
+      },
+    }),
+    ...(dto.fullName !== undefined || dto.email !== undefined
+      ? [
+          this.prisma.user.update({
+            where: { id: userId },
+            data: {
+              ...(dto.fullName !== undefined ? { fullName: dto.fullName } : {}),
+              ...(dto.email !== undefined ? { email: dto.email } : {}),
+            },
+          }),
+        ]
+      : []),
+  ]);
+
+  return this.getMe(userId);
+}
 }
