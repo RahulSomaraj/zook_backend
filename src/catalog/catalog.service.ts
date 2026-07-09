@@ -31,7 +31,20 @@ export class CatalogService {
       this.prisma.productCatalog.count({ where }),
     ]);
 
-    return { items, total, page, limit };
+    const catalogIds = items.map((item) => item.id);
+    const priceRanges = await this.getPriceRangesForCatalogIds(catalogIds);
+
+    const itemsWithPriceRange = items.map((item) => ({
+      ...item,
+      priceRange: priceRanges.get(item.id) ?? {
+        min: null,
+        max: null,
+        sampleSize: 0,
+        currency: 'AED',
+      },
+    }));
+
+    return { items: itemsWithPriceRange, total, page, limit };
   }
 
   async findOne(id: string) {
@@ -64,5 +77,30 @@ export class CatalogService {
       sampleSize: agg._count,
       currency: 'AED',
     };
+  }
+
+  private async getPriceRangesForCatalogIds(catalogIds: string[]) {
+    const map = new Map<string,
+      { min: any; max: any; sampleSize: number; currency: string }
+    >();
+    if (catalogIds.length === 0) return map;
+
+    const grouped = await this.prisma.product.groupBy({
+      by: ['catalogId'],
+      where: { catalogId: { in: catalogIds }, isActive: true },
+      _min: { price: true },
+      _max: { price: true },
+      _count: true,
+    });
+
+    for (const row of grouped) {
+      map.set(row.catalogId, {
+        min: row._min.price,
+        max: row._max.price,
+        sampleSize: row._count,
+        currency: 'AED',
+      });
+    }
+    return map;
   }
 }
