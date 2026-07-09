@@ -33,6 +33,7 @@ export class OnboardingNotifier {
     const payload = {
       step: event.step,
       status: event.status,
+      message: event.message,
       reason: event.reason,
       kycId: event.kycId,
       occurredAt: event.occurredAt,
@@ -50,11 +51,12 @@ export class OnboardingNotifier {
       const tokens = await this.deviceTokens.tokensFor(event.userId);
       await this.push.send(tokens, {
         title: this.title(event),
-        body: this.body(event),
+        body: event.message,
         data: {
           type: 'onboarding',
           step: event.step,
           status: event.status,
+          message: event.message,
           ...(event.kycId ? { kycId: event.kycId } : {}),
         },
       });
@@ -70,16 +72,5 @@ export class OnboardingNotifier {
         : 'Documents need attention';
     }
     return e.status === 'approved' ? 'Store approved' : 'Store update';
-  }
-
-  private body(e: OnboardingStepChangedEvent): string {
-    if (e.step === 'kyc') {
-      return e.status === 'approved'
-        ? 'Your KYC documents were approved.'
-        : `Your KYC was rejected${e.reason ? `: ${e.reason}` : ''}.`;
-    }
-    return e.status === 'approved'
-      ? 'Your store is now active.'
-      : 'There is an update on your store.';
   }
 }

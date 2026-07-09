@@ -19,6 +19,8 @@ export interface OnboardingStepChangedEvent {
   vendorId: string;
   step: OnboardingStep;
   status: OnboardingStepStatus;
+  /** Human-readable message the client can display directly. */
+  message: string;
   /** Rejection reason when status === 'rejected'; otherwise null. */
   reason: string | null;
   /** The KYC submission id when step === 'kyc'; otherwise null. */
