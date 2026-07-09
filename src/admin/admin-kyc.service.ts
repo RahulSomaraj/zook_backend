@@ -97,11 +97,17 @@ export class AdminKycService {
     reason: string | null,
     kycId: string,
   ): void {
+    const message =
+      status === 'approved'
+        ? 'Your KYC documents were approved.'
+        : `Your KYC was rejected${reason ? `: ${reason}.` : '.'}`;
+
     const event: OnboardingStepChangedEvent = {
       userId,
       vendorId,
       step: 'kyc',
       status,
+      message,
       reason,
       kycId,
       occurredAt: new Date().toISOString(),

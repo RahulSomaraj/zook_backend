@@ -173,6 +173,7 @@ export class AdminVendorsService {
       vendorId: vendor.id,
       step: 'store_activation',
       status: 'approved',
+      message: 'Your store is now active.',
       reason: null,
       kycId: null,
       occurredAt: new Date().toISOString(),
