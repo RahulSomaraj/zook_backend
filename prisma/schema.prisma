@@ -169,6 +169,9 @@ model Vendor {
   userId         String       @unique @map("user_id") @db.Uuid
   storeName      String       @map("store_name")
   storeLogoUrl   String?      @map("store_logo_url")
+  description    String?
+  phone          String?      @map("store_phone")
+  coverImageUrl  String?      @map("cover_image_url")
   storeAddress   String?      @map("store_address") // courier pickup only
   pickupLat      Float?       @map("pickup_lat")
   pickupLng      Float?       @map("pickup_lng")

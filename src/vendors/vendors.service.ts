@@ -15,7 +15,7 @@ export class VendorsService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** Vendor profile for the authenticated user (store + latest KYC). */
- async getMe(userId: string) {
+async getMe(userId: string) {
   const vendor = await this.findVendorOrThrow(userId);
   const user = await this.prisma.user.findUnique({
     where: { id: userId },
@@ -28,6 +28,9 @@ export class VendorsService {
   return {
     id: vendor.id,
     storeName: vendor.storeName,
+    description: vendor.description,
+    phone: vendor.phone,
+    coverImageUrl: vendor.coverImageUrl,
     status: vendor.status,
     commissionRate: vendor.commissionRate,
     storeAddress: vendor.storeAddress,
@@ -136,11 +139,14 @@ export class VendorsService {
   async updateProfile(userId: string, dto: UpdateVendorProfileDto) {
   const vendor = await this.findVendorOrThrow(userId);
 
-  const [updatedVendor] = await this.prisma.$transaction([
+  await this.prisma.$transaction([
     this.prisma.vendor.update({
       where: { id: vendor.id },
       data: {
         storeName: dto.storeName,
+        description: dto.description,
+        phone: dto.phone,
+        coverImageUrl: dto.coverImageUrl,
         storeAddress: dto.storeAddress,
         pickupLat: dto.pickupLat,
         pickupLng: dto.pickupLng,
