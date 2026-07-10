@@ -57,6 +57,7 @@ export class OnboardingNotifier {
           step: event.step,
           status: event.status,
           message: event.message,
+          ...(event.reason ? { reason: event.reason } : {}),
           ...(event.kycId ? { kycId: event.kycId } : {}),
         },
       });
@@ -69,7 +70,7 @@ export class OnboardingNotifier {
     if (e.step === 'kyc') {
       return e.status === 'approved'
         ? 'Documents approved'
-        : 'Documents need attention';
+        : 'Documents rejected';
     }
     return e.status === 'approved' ? 'Store approved' : 'Store update';
   }

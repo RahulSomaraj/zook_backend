@@ -38,17 +38,24 @@ export class FcmPushSender extends PushSender implements OnModuleInit {
   async send(tokens: string[], message: PushMessage): Promise<void> {
     if (tokens.length === 0 || !this.enabled) return;
 
+    const data = message.data
+      ? Object.fromEntries(
+          Object.entries(message.data).map(([key, value]) => [key, String(value)]),
+        )
+      : undefined;
+
     const res = await admin.messaging().sendEachForMulticast({
       tokens,
       notification: { title: message.title, body: message.body },
-      data: message.data ?? {},
+      data,
     });
 
     const dead = res.responses
       .map((r, i) => ({ r, token: tokens[i] }))
       .filter(
         ({ r }) =>
-          r.error?.code === 'messaging/registration-token-not-registered',
+          r.error?.code === 'messaging/registration-token-not-registered' ||
+          r.error?.code === 'messaging/invalid-registration-token',
       )
       .map(({ token }) => token);
 
