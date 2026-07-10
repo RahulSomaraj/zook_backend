@@ -19,6 +19,8 @@ import { CatalogModule } from './catalog/catalog.module';
 import { CustomerAuthModule } from './customers/customer-auth/customer-auth.module';
 import { CategoriesModule } from './customers/customer-categories/categories.module';
 import { CartModule } from './customers/cart/cart.module';
+import { OrdersModule } from './customers/orders/orders.module';
+import { AdressesModule } from './customers/adresses/adresses.module';
 
 @Module({
   imports: [
@@ -54,6 +56,8 @@ import { CartModule } from './customers/cart/cart.module';
     CustomerAuthModule,
     CategoriesModule,
     CartModule,
+    OrdersModule,
+    AdressesModule,
   ],
   controllers: [AppController],
   providers: [
