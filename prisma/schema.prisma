@@ -128,6 +128,8 @@ model User {
   deviceTokens DeviceToken[]
   // Customer shopping carts owned by this user (typically one active cart).
   carts Cart[]
+  // Products this user has wishlisted.
+  wishlistItems WishlistItem[]
   // Saved delivery addresses for customer checkout.
   addresses CustomerAddress[]
   // KYC records this user reviewed in their admin capacity.
@@ -346,10 +348,11 @@ model Product {
   isActive         Boolean        @default(true) @map("is_active")
   createdAt        DateTime       @default(now()) @map("created_at")
 
-  vendor    Vendor?        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  catalog   ProductCatalog @relation(fields: [catalogId], references: [id])
-  cartItems CartItem[]
-  subOrders SubOrder[]
+  vendor        Vendor?        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  catalog       ProductCatalog @relation(fields: [catalogId], references: [id])
+  cartItems     CartItem[]
+  wishlistItems WishlistItem[]
+  subOrders     SubOrder[]
 
   @@index([vendorId])
   @@index([catalogId])
@@ -392,6 +395,21 @@ model CartItem {
   @@index([cartId])
   @@index([productId])
   @@map("cart_items")
+}
+
+model WishlistItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+  @@map("wishlist_items")
 }
 
 model CustomerAddress {

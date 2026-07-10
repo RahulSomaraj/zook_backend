@@ -22,6 +22,7 @@ import { CategoriesModule } from './customers/customer-categories/categories.mod
 import { CartModule } from './customers/cart/cart.module';
 import { OrdersModule } from './customers/orders/orders.module';
 import { AdressesModule } from './customers/adresses/adresses.module';
+import { WishlistModule } from './customers/wishlist/wishlist.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { AdressesModule } from './customers/adresses/adresses.module';
     CartModule,
     OrdersModule,
     AdressesModule,
+    WishlistModule,
   ],
   controllers: [AppController],
   providers: [
