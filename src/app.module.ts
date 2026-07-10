@@ -16,6 +16,7 @@ import { VendorsModule } from './vendors/vendors.module';
 import { AdminModule } from './admin/admin.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { ProductsModule } from './products/products.module';
 import { CustomerAuthModule } from './customers/customer-auth/customer-auth.module';
 import { CategoriesModule } from './customers/customer-categories/categories.module';
 import { CartModule } from './customers/cart/cart.module';
@@ -53,6 +54,7 @@ import { AdressesModule } from './customers/adresses/adresses.module';
     AdminModule,
     RealtimeModule,
     CatalogModule,
+    ProductsModule,
     CustomerAuthModule,
     CategoriesModule,
     CartModule,
