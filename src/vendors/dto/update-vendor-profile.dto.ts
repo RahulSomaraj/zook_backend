@@ -19,7 +19,6 @@ export class UpdateVendorProfileDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUrl()
   coverImageUrl?: string;
 
   @ApiPropertyOptional()

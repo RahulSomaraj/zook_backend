@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { KycStatus, VendorStatus } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
+import { normalizePhone } from '../common/utils/phone.util';
 import { SubmitKycDto } from './dto/submit-kyc.dto';
 import { UpdateVendorProfileDto } from './dto/update-vendor-profile.dto';
 
@@ -15,36 +16,36 @@ export class VendorsService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** Vendor profile for the authenticated user (store + latest KYC). */
-async getMe(userId: string) {
-  const vendor = await this.findVendorOrThrow(userId);
-  const user = await this.prisma.user.findUnique({
-    where: { id: userId },
-    select: { fullName: true, email: true },
-  });
-  const latestKyc = await this.prisma.vendorKyc.findFirst({
-    where: { vendorId: vendor.id },
-    orderBy: { createdAt: 'desc' },
-  });
-  return {
-    id: vendor.id,
-    storeName: vendor.storeName,
-    description: vendor.description,
-    phone: vendor.phone,
-    coverImageUrl: vendor.coverImageUrl,
-    status: vendor.status,
-    commissionRate: vendor.commissionRate,
-    storeAddress: vendor.storeAddress,
-    pickupLat: vendor.pickupLat,
-    pickupLng: vendor.pickupLng,
-    ownerFullName: user?.fullName ?? null,
-    ownerEmail: user?.email ?? null,
-    createdAt: vendor.createdAt,
-    deletedAt: vendor.deletedAt,
-    kyc: latestKyc
-      ? { status: latestKyc.status, submittedAt: latestKyc.createdAt }
-      : null,
-  };
-}
+  async getMe(userId: string) {
+    const vendor = await this.findVendorOrThrow(userId);
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { fullName: true, email: true, phone: true },
+    });
+    const latestKyc = await this.prisma.vendorKyc.findFirst({
+      where: { vendorId: vendor.id },
+      orderBy: { createdAt: 'desc' },
+    });
+    return {
+      id: vendor.id,
+      storeName: vendor.storeName,
+      description: vendor.description,
+      coverImageUrl: vendor.coverImageUrl,
+      status: vendor.status,
+      commissionRate: vendor.commissionRate,
+      storeAddress: vendor.storeAddress,
+      pickupLat: vendor.pickupLat,
+      pickupLng: vendor.pickupLng,
+      ownerFullName: user?.fullName ?? null,
+      ownerEmail: user?.email ?? null,
+      phone: user?.phone ?? null,
+      createdAt: vendor.createdAt,
+      deletedAt: vendor.deletedAt,
+      kyc: latestKyc
+        ? { status: latestKyc.status, submittedAt: latestKyc.createdAt }
+        : null,
+    };
+  }
 
   /** Submit (or resubmit) KYC documents; sets the vendor's KYC to pending. */
   async submitKyc(userId: string, dto: SubmitKycDto) {
@@ -137,34 +138,43 @@ async getMe(userId: string) {
   }
 
   async updateProfile(userId: string, dto: UpdateVendorProfileDto) {
-  const vendor = await this.findVendorOrThrow(userId);
+    const vendor = await this.findVendorOrThrow(userId);
 
-  await this.prisma.$transaction([
-    this.prisma.vendor.update({
-      where: { id: vendor.id },
-      data: {
-        storeName: dto.storeName,
-        description: dto.description,
-        phone: dto.phone,
-        coverImageUrl: dto.coverImageUrl,
-        storeAddress: dto.storeAddress,
-        pickupLat: dto.pickupLat,
-        pickupLng: dto.pickupLng,
-      },
-    }),
-    ...(dto.fullName !== undefined || dto.email !== undefined
-      ? [
-          this.prisma.user.update({
-            where: { id: userId },
-            data: {
-              ...(dto.fullName !== undefined ? { fullName: dto.fullName } : {}),
-              ...(dto.email !== undefined ? { email: dto.email } : {}),
-            },
-          }),
-        ]
-      : []),
-  ]);
+    let normalizedPhone: string | undefined;
+    if (dto.phone !== undefined) {
+      normalizedPhone = normalizePhone(dto.phone);
 
-  return this.getMe(userId);
-}
+      const existing = await this.prisma.user.findFirst({
+        where: { phone: normalizedPhone, id: { not: userId } },
+        select: { id: true },
+      });
+      if (existing) {
+        throw new ConflictException('This phone number is already in use');
+      }
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.vendor.update({
+        where: { id: vendor.id },
+        data: {
+          storeName: dto.storeName,
+          description: dto.description,
+          coverImageUrl: dto.coverImageUrl,
+          storeAddress: dto.storeAddress,
+          pickupLat: dto.pickupLat,
+          pickupLng: dto.pickupLng,
+        },
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          ...(dto.fullName !== undefined ? { fullName: dto.fullName } : {}),
+          ...(dto.email !== undefined ? { email: dto.email } : {}),
+          ...(normalizedPhone !== undefined ? { phone: normalizedPhone } : {}),
+        },
+      }),
+    ]);
+
+    return this.getMe(userId);
+  }
 }
