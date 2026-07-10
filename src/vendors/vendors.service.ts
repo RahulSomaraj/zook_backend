@@ -3,13 +3,33 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { KycStatus, VendorStatus } from '@prisma/client';
+import { KycStatus, Prisma, VendorStatus } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { normalizePhone } from '../common/utils/phone.util';
 import { SubmitKycDto } from './dto/submit-kyc.dto';
 import { UpdateVendorProfileDto } from './dto/update-vendor-profile.dto';
 
 export type StepStatus = 'done' | 'active' | 'pending' | 'rejected';
+
+const vendorProfileSelect = {
+  id: true,
+  userId: true,
+  storeName: true,
+  storeLogoUrl: true,
+  description: true,
+  phone: true,
+  coverImageUrl: true,
+  language: true,
+  currency: true,
+  storeAddress: true,
+  pickupLat: true,
+  pickupLng: true,
+  commissionRate: true,
+  status: true,
+  strikeCount: true,
+  createdAt: true,
+  deletedAt: true,
+} satisfies Prisma.VendorSelect;
 
 @Injectable()
 export class VendorsService {
@@ -131,12 +151,6 @@ export class VendorsService {
     };
   }
 
-  private async findVendorOrThrow(userId: string) {
-    const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
-    if (!vendor) throw new NotFoundException('Vendor profile not found');
-    return vendor;
-  }
-
   async updateProfile(userId: string, dto: UpdateVendorProfileDto) {
     const vendor = await this.findVendorOrThrow(userId);
 
@@ -153,17 +167,19 @@ export class VendorsService {
       }
     }
 
+    const vendorData: Prisma.VendorUpdateInput = {
+      ...(dto.storeName !== undefined ? { storeName: dto.storeName } : {}),
+      ...(dto.description !== undefined ? { description: dto.description } : {}),
+      ...(dto.coverImageUrl !== undefined ? { coverImageUrl: dto.coverImageUrl } : {}),
+      ...(dto.storeAddress !== undefined ? { storeAddress: dto.storeAddress } : {}),
+      ...(dto.pickupLat !== undefined ? { pickupLat: dto.pickupLat } : {}),
+      ...(dto.pickupLng !== undefined ? { pickupLng: dto.pickupLng } : {}),
+    };
+
     await this.prisma.$transaction([
       this.prisma.vendor.update({
         where: { id: vendor.id },
-        data: {
-          storeName: dto.storeName,
-          description: dto.description,
-          coverImageUrl: dto.coverImageUrl,
-          storeAddress: dto.storeAddress,
-          pickupLat: dto.pickupLat,
-          pickupLng: dto.pickupLng,
-        },
+        data: vendorData,
       }),
       this.prisma.user.update({
         where: { id: userId },
@@ -176,5 +192,14 @@ export class VendorsService {
     ]);
 
     return this.getMe(userId);
+  }
+
+  private async findVendorOrThrow(userId: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { userId },
+      select: vendorProfileSelect,
+    });
+    if (!vendor) throw new NotFoundException('Vendor profile not found');
+    return vendor;
   }
 }
