@@ -15,29 +15,33 @@ export class ListingsService {
     return vendor.id;
   }
 
-  async create(userId: string, dto: CreateListingDto) {
-    const vendorId = await this.getVendorId(userId);
+ async create(userId: string, dto: CreateListingDto) {
+  const vendorId = await this.getVendorId(userId);
 
-    const catalogItem = await this.prisma.productCatalog.findFirst({
-      where: { id: dto.catalogId, deletedAt: null, status: CatalogStatus.active },
-    });
-    if (!catalogItem) throw new NotFoundException('Catalog item not found');
+  const catalogItem = await this.prisma.productCatalog.findFirst({
+    where: { id: dto.catalogId, deletedAt: null, status: CatalogStatus.active },
+  });
+  if (!catalogItem) throw new NotFoundException('Catalog item not found');
 
-    return this.prisma.product.create({
-      data: {
-        vendorId,
-        catalogId: dto.catalogId,
-        source: ProductSource.vendor,
-        conditionGrade: dto.conditionGrade,
-        storageVariant: dto.storageVariant,
-        color: dto.color,
-        inspectionImages: dto.inspectionImages ?? [],
-        description: dto.description,
-        price: dto.price,
-        stockQty: dto.stockQty,
-      },
-    });
-  }
+  const product = await this.prisma.product.create({
+    data: {
+      vendorId,
+      catalogId: dto.catalogId,
+      source: ProductSource.vendor,
+      conditionGrade: dto.conditionGrade,
+      storageVariant: dto.storageVariant,
+      color: dto.color,
+      inspectionImages: dto.inspectionImages ?? [],
+      description: dto.description,
+      price: dto.price,
+      stockQty: dto.stockQty,
+    },
+  });
+
+  const pickupAddress = await this.getPickupAddress(userId);
+
+  return { ...product, pickupAddress };
+}
 
   async findAll(userId: string, query: QueryListingsDto) {
     const vendorId = await this.getVendorId(userId);
