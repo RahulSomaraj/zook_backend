@@ -1,7 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Emirate } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
   IsEmail,
+  IsEnum,
   IsString,
   Matches,
   MaxLength,
@@ -38,4 +40,23 @@ export class RegisterVendorDto {
     typeof value === 'string' ? value.trim().toLowerCase() : value,
   )
   email!: string;
+
+  @ApiProperty({
+    example: 'Shop 4, Al Turath Building, Al Quoz Industrial Area 3',
+    description: 'Courier pickup address.',
+  })
+  @IsString()
+  @MinLength(3)
+  @MaxLength(500)
+  storeAddress!: string;
+
+  @ApiProperty({ example: 'Al Quoz', description: 'Pickup area / locality.' })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  area!: string;
+
+  @ApiProperty({ enum: Emirate, example: Emirate.dubai })
+  @IsEnum(Emirate)
+  emirate!: Emirate;
 }

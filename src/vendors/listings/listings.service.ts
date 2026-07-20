@@ -104,10 +104,18 @@ export class ListingsService {
     const vendorId = await this.getVendorId(userId);
     const vendor = await this.prisma.vendor.findUnique({
     where: { id: vendorId },
-    select: { storeAddress: true, pickupLat: true, pickupLng: true },
+    select: {
+      storeAddress: true,
+      pickupArea: true,
+      pickupEmirate: true,
+      pickupLat: true,
+      pickupLng: true,
+    },
   });
   return {
     storeAddress: vendor?.storeAddress ?? null,
+    pickupArea: vendor?.pickupArea ?? null,
+    pickupEmirate: vendor?.pickupEmirate ?? null,
     pickupLat: vendor?.pickupLat ?? null,
     pickupLng: vendor?.pickupLng ?? null,
   };

@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsNumber, IsOptional, IsString, IsUrl } from 'class-validator';
+import { Emirate } from '@prisma/client';
+import { IsEmail, IsEnum, IsNumber, IsOptional, IsString, IsUrl } from 'class-validator';
 
 export class UpdateVendorProfileDto {
   @ApiPropertyOptional()
@@ -25,6 +26,16 @@ export class UpdateVendorProfileDto {
   @IsOptional()
   @IsString()
   storeAddress?: string;
+
+  @ApiPropertyOptional({ description: 'Pickup area / locality' })
+  @IsOptional()
+  @IsString()
+  area?: string;
+
+  @ApiPropertyOptional({ enum: Emirate })
+  @IsOptional()
+  @IsEnum(Emirate)
+  emirate?: Emirate;
 
   @ApiPropertyOptional()
   @IsOptional()

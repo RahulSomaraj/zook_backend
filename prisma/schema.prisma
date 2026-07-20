@@ -68,6 +68,16 @@ enum AdminStatus {
   suspended
 }
 
+enum Emirate {
+  abu_dhabi
+  dubai
+  sharjah
+  ajman
+  umm_al_quwain
+  ras_al_khaimah
+  fujairah
+}
+
 enum AdminLevel {
   support // L1 — read-mostly, handles tickets
   manager // L2 — approves KYC, manages vendors/inspectors
@@ -181,6 +191,8 @@ model Vendor {
   language       String?      @default("en")
   currency       String?      @default("AED")
   storeAddress   String?      @map("store_address") // courier pickup only
+  pickupArea     String?      @map("pickup_area")
+  pickupEmirate  Emirate?     @map("pickup_emirate")
   pickupLat      Float?       @map("pickup_lat")
   pickupLng      Float?       @map("pickup_lng")
   commissionRate Decimal      @default(10.0) @map("commission_rate") @db.Decimal(5, 2)

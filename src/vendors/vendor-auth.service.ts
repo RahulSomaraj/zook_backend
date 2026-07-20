@@ -135,7 +135,13 @@ export class VendorAuthService {
         data: { userId: created.id, role: DbRole.vendor },
       });
       await tx.vendor.create({
-        data: { userId: created.id, storeName: dto.storeName },
+        data: {
+          userId: created.id,
+          storeName: dto.storeName,
+          storeAddress: dto.storeAddress,
+          pickupArea: dto.area,
+          pickupEmirate: dto.emirate,
+        },
       });
       return created;
     });
