@@ -92,6 +92,15 @@ enum CatalogStatus {
   draft
 }
 
+// Moderation state of an individual vendor/C2C product listing. New listings
+// start `pending` and stay hidden from buyers until an admin `approved`s them;
+// `rejected` listings are kept for audit but never shown.
+enum ProductStatus {
+  pending
+  approved
+  rejected
+}
+
 // Sub-order fulfilment state machine (shared by the vendor + admin order flows).
 enum OrderStatus {
   confirmed // paid, awaiting packing
@@ -357,6 +366,8 @@ model Product {
   whatIsIncluded   Json?          @map("what_is_included")
   price            Decimal        @db.Decimal(10, 2)
   stockQty         Int            @default(1) @map("stock_qty")
+  status           ProductStatus  @default(pending)
+  rejectionReason  String?        @map("rejection_reason") // set when status = rejected
   isActive         Boolean        @default(true) @map("is_active")
   createdAt        DateTime       @default(now()) @map("created_at")
 
@@ -368,6 +379,7 @@ model Product {
 
   @@index([vendorId])
   @@index([catalogId])
+  @@index([status])
   @@index([isActive])
   @@map("products")
 }

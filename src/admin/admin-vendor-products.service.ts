@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { QueryProductsDto } from './dto/query-product.dto';
 
@@ -47,5 +47,33 @@ export class AdminVendorProductsService {
     if (!product) throw new NotFoundException('Product not found');
 
     return product;
+  }
+
+  /** Approve a listing: publishes it and clears any prior rejection reason. */
+  async approve(productId: string) {
+    await this.ensureExists(productId);
+
+    return this.prisma.product.update({
+      where: { id: productId },
+      data: { status: ProductStatus.approved, rejectionReason: null },
+    });
+  }
+
+  /** Reject a listing: takes it down and stores the reason for audit. */
+  async reject(productId: string, reason: string) {
+    await this.ensureExists(productId);
+
+    return this.prisma.product.update({
+      where: { id: productId },
+      data: { status: ProductStatus.rejected, rejectionReason: reason },
+    });
+  }
+
+  private async ensureExists(productId: string) {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      select: { id: true },
+    });
+    if (!product) throw new NotFoundException('Product not found');
   }
 }
