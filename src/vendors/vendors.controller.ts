@@ -24,6 +24,14 @@ export class VendorsController {
     return this.vendors.getMe(user.id);
   }
 
+  @Get('me/dashboard')
+  @ApiOperation({
+    summary: 'Home dashboard summary (orders today, live listings, month revenue)',
+  })
+  getDashboard(@CurrentUser() user: AuthenticatedUser) {
+    return this.vendors.getDashboard(user.id);
+  }
+
   @Get('me/onboarding-status')
   @ApiOperation({ summary: 'KYC onboarding tracker (4 steps)' })
   onboardingStatus(@CurrentUser() user: AuthenticatedUser) {

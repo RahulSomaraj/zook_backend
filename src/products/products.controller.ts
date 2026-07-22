@@ -9,25 +9,35 @@ export class ProductsController {
 
   @Get('recently-listed')
   @ApiOperation({ summary: 'Get recently listed buyer-visible products' })
-  recentlyListed() {
-    return this.products.getRecentlyListed();
+  @ApiQuery({ name: 'country', required: false, description: 'Filter by country ISO code (e.g. AE)' })
+  recentlyListed(@Query('country') country?: string) {
+    return this.products.getRecentlyListed(country);
   }
 
   @Get('top-picks')
   @ApiOperation({ summary: 'Get top picks buyer-visible products' })
-  topPicks() {
-    return this.products.getTopPicks();
+  @ApiQuery({ name: 'country', required: false, description: 'Filter by country ISO code (e.g. AE)' })
+  topPicks(@Query('country') country?: string) {
+    return this.products.getTopPicks(country);
   }
 
   @Get()
-  @ApiOperation({ summary: 'List buyer-visible products, optionally filtered by category' })
+  @ApiOperation({ summary: 'List buyer-visible products, optionally filtered by category and country' })
   @ApiQuery({
     name: 'category_id',
     required: false,
     description: 'Filter products by category id',
   })
-  list(@Query('category_id') categoryId?: string) {
-    return this.products.list(categoryId);
+  @ApiQuery({
+    name: 'country',
+    required: false,
+    description: 'Filter products by country ISO code (e.g. AE)',
+  })
+  list(
+    @Query('category_id') categoryId?: string,
+    @Query('country') country?: string,
+  ) {
+    return this.products.list(categoryId, country);
   }
 
   @Get(':id')

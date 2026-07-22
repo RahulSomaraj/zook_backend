@@ -198,6 +198,10 @@ model Vendor {
   phone          String?      @map("store_phone")
   coverImageUrl  String?      @map("cover_image_url")
   language       String?      @default("en")
+  // Source of truth for the vendor's currency: the assigned country supplies
+  // the currency shown across the store. `currency` mirrors country.currencyCode
+  // for existing readers and is kept in sync whenever `countryId` changes.
+  countryId      String?      @map("country_id") @db.Uuid
   currency       String?      @default("AED")
   storeAddress   String?      @map("store_address") // courier pickup only
   pickupArea     String?      @map("pickup_area")
@@ -213,12 +217,14 @@ model Vendor {
   deletedAt      DateTime?    @map("deleted_at")
 
   user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  country   Country?    @relation(fields: [countryId], references: [id], onDelete: SetNull)
   kyc       VendorKyc[]
   products  Product[]
   subOrders SubOrder[]
 
   @@index([status])
   @@index([deletedAt])
+  @@index([countryId])
   @@map("vendors")
 }
 
@@ -320,6 +326,36 @@ model Category {
   @@index([isActive])
   @@index([deletedAt])
   @@map("categories")
+}
+
+// A supported country and the currency shown to users in it. Currency lives as
+// fields here (not a separate table) because many countries can share a
+// currency, and the app always resolves currency *through* a country. Same
+// admin lifecycle as Brand/Category: soft-delete (archive + restore) and an
+// `isActive` flag that hides a country from the public list without archiving.
+model Country {
+  id             String    @id @default(uuid()) @db.Uuid
+  name           String    @unique // "United Arab Emirates"
+  iso2           String    @unique // ISO 3166-1 alpha-2, e.g. "AE"
+  dialCode       String?   @map("dial_code") // "+971"
+  currencyCode   String    @map("currency_code") // ISO 4217, e.g. "AED"
+  currencyName   String    @map("currency_name") // "UAE Dirham"
+  currencySymbol String    @map("currency_symbol") // "د.إ"
+  // Multiplier from the base currency (AED). localPrice = basePrice * exchangeRate.
+  exchangeRate   Decimal   @default(1.0) @map("exchange_rate") @db.Decimal(18, 6)
+  // The fallback country used when a user has not chosen one. At most one row
+  // should have this set; the app treats the first active default as canonical.
+  isDefault      Boolean   @default(false) @map("is_default")
+  isActive       Boolean   @default(true) @map("is_active")
+  sortOrder      Int       @default(0) @map("sort_order")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  vendors Vendor[]
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("countries")
 }
 
 model ProductCatalog {

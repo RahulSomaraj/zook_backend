@@ -26,9 +26,9 @@ type ProductListRow = Prisma.ProductGetPayload<{
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getRecentlyListed() {
+  async getRecentlyListed(countryCode?: string) {
     const items = await this.prisma.product.findMany({
-      where: this.buyerVisibleWhere(),
+      where: this.buyerVisibleWhere(countryCode),
       include: productListInclude,
       orderBy: { createdAt: 'desc' },
       take: 20,
@@ -37,9 +37,9 @@ export class ProductsService {
     return { items: items.map((item) => this.toSummary(item)) };
   }
 
-  async getTopPicks() {
+  async getTopPicks(countryCode?: string) {
     const items = await this.prisma.product.findMany({
-      where: this.buyerVisibleWhere(),
+      where: this.buyerVisibleWhere(countryCode),
       include: productListInclude,
       // Until we have popularity/curation signals, top picks use a simple
       // premium-first heuristic.
@@ -50,8 +50,8 @@ export class ProductsService {
     return { items: items.map((item) => this.toSummary(item)) };
   }
 
-  async list(categoryId?: string) {
-    const where = this.buyerVisibleWhere();
+  async list(categoryId?: string, countryCode?: string) {
+    const where = this.buyerVisibleWhere(countryCode);
     if (categoryId) {
       where.catalog = { categoryId };
     }
@@ -131,19 +131,33 @@ export class ProductsService {
     };
   }
 
-  private buyerVisibleWhere(): Prisma.ProductWhereInput {
+  /**
+   * Buyer-visible products: active, in stock, and either a C2C listing or one
+   * from an approved (non-archived) vendor. When `countryCode` (ISO 3166-1
+   * alpha-2, e.g. "AE") is given, the store is scoped to that country: only
+   * products from vendors based there are returned. C2C listings have no
+   * vendor — and therefore no country — so they are excluded from a
+   * country-scoped view.
+   */
+  private buyerVisibleWhere(countryCode?: string): Prisma.ProductWhereInput {
+    const approvedVendor: Prisma.VendorWhereInput = {
+      status: VendorStatus.approved,
+      deletedAt: null,
+    };
+
+    const code = countryCode?.trim().toUpperCase();
+    if (code) {
+      return {
+        isActive: true,
+        stockQty: { gt: 0 },
+        vendor: { ...approvedVendor, country: { iso2: code } },
+      };
+    }
+
     return {
       isActive: true,
       stockQty: { gt: 0 },
-      OR: [
-        { vendorId: null },
-        {
-          vendor: {
-            status: VendorStatus.approved,
-            deletedAt: null,
-          },
-        },
-      ],
+      OR: [{ vendorId: null }, { vendor: approvedVendor }],
     };
   }
 

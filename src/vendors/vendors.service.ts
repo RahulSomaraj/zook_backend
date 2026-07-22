@@ -3,7 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { KycStatus, Prisma, VendorStatus } from '@prisma/client';
+import {
+  KycStatus,
+  OrderStatus,
+  Prisma,
+  ProductStatus,
+  VendorStatus,
+} from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { normalizePhone } from '../common/utils/phone.util';
 import { SubmitKycDto } from './dto/submit-kyc.dto';
@@ -21,6 +27,17 @@ const vendorProfileSelect = {
   coverImageUrl: true,
   language: true,
   currency: true,
+  countryId: true,
+  country: {
+    select: {
+      id: true,
+      name: true,
+      iso2: true,
+      currencyCode: true,
+      currencyName: true,
+      currencySymbol: true,
+    },
+  },
   storeAddress: true,
   pickupArea: true,
   pickupEmirate: true,
@@ -198,6 +215,100 @@ export class VendorsService {
     ]);
 
     return this.getMe(userId);
+  }
+
+  /**
+   * Home dashboard summary for the authenticated vendor: the header greeting
+   * plus the three stat tiles (orders today, live listings, month-to-date
+   * revenue). Day/month boundaries are computed in the server's local time.
+   */
+  async getDashboard(userId: string) {
+    const vendor = await this.findVendorOrThrow(userId);
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { fullName: true },
+    });
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfYesterday = new Date(startOfToday);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+    // A placed order for this vendor is a sub-order that wasn't cancelled.
+    const placedOrder = {
+      vendorId: vendor.id,
+      status: { not: OrderStatus.cancelled },
+    } satisfies Prisma.SubOrderWhereInput;
+
+    // A "live" listing is an approved, active product.
+    const liveListing = {
+      vendorId: vendor.id,
+      status: ProductStatus.approved,
+      isActive: true,
+    } satisfies Prisma.ProductWhereInput;
+
+    const [
+      ordersToday,
+      ordersYesterday,
+      liveListings,
+      outOfStock,
+      revenueThisMonth,
+      revenueLastMonth,
+    ] = await this.prisma.$transaction([
+      this.prisma.subOrder.count({
+        where: { ...placedOrder, createdAt: { gte: startOfToday } },
+      }),
+      this.prisma.subOrder.count({
+        where: {
+          ...placedOrder,
+          createdAt: { gte: startOfYesterday, lt: startOfToday },
+        },
+      }),
+      this.prisma.product.count({ where: liveListing }),
+      this.prisma.product.count({ where: { ...liveListing, stockQty: 0 } }),
+      this.prisma.subOrder.aggregate({
+        _sum: { salePrice: true },
+        where: { ...placedOrder, createdAt: { gte: startOfMonth } },
+      }),
+      this.prisma.subOrder.aggregate({
+        _sum: { salePrice: true },
+        where: {
+          ...placedOrder,
+          createdAt: { gte: startOfLastMonth, lt: startOfMonth },
+        },
+      }),
+    ]);
+
+    const monthRevenue = Number(revenueThisMonth._sum.salePrice ?? 0);
+    const lastMonthRevenue = Number(revenueLastMonth._sum.salePrice ?? 0);
+    const changePercent =
+      lastMonthRevenue > 0
+        ? Math.round(
+            ((monthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100,
+          )
+        : null;
+
+    return {
+      header: {
+        storeName: vendor.storeName,
+        greetingName: user?.fullName?.trim().split(/\s+/)[0] ?? null,
+      },
+      ordersToday: {
+        count: ordersToday,
+        deltaVsYesterday: ordersToday - ordersYesterday,
+      },
+      liveListings: {
+        count: liveListings,
+        outOfStock,
+      },
+      thisMonth: {
+        currency: vendor.currency,
+        revenue: monthRevenue,
+        changePercent,
+      },
+    };
   }
 
   private async findVendorOrThrow(userId: string) {

@@ -23,6 +23,7 @@ import { CartModule } from './customers/cart/cart.module';
 import { OrdersModule } from './customers/orders/orders.module';
 import { AdressesModule } from './customers/adresses/adresses.module';
 import { WishlistModule } from './customers/wishlist/wishlist.module';
+import { CountriesModule } from './countries/countries.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { WishlistModule } from './customers/wishlist/wishlist.module';
     OrdersModule,
     AdressesModule,
     WishlistModule,
+    CountriesModule,
   ],
   controllers: [AppController],
   providers: [

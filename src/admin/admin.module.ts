@@ -5,6 +5,8 @@ import { AdminCatalogController } from './admin-catalog.controller';
 import { AdminCatalogService } from './admin-catalog.service';
 import { AdminCategoriesController } from './admin-categories.controller';
 import { AdminCategoriesService } from './admin-categories.service';
+import { AdminCountriesController } from './admin-countries.controller';
+import { AdminCountriesService } from './admin-countries.service';
 import { AdminKycController } from './admin-kyc.controller';
 import { AdminKycService } from './admin-kyc.service';
 import { AdminOrdersController } from './admin-orders.controller';
@@ -25,6 +27,7 @@ import { AdminVendorsService } from './admin-vendors.service';
     AdminCatalogController,
     AdminBrandsController,
     AdminCategoriesController,
+    AdminCountriesController,
   ],
   providers: [
     AdminKycService,
@@ -34,6 +37,7 @@ import { AdminVendorsService } from './admin-vendors.service';
     AdminCatalogService,
     AdminBrandsService,
     AdminCategoriesService,
+    AdminCountriesService,
   ],
 })
 export class AdminModule {}
