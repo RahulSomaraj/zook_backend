@@ -31,16 +31,6 @@ export class RegisterCustomerDto {
   email!: string;
 
   @ApiProperty({
-    example: 'Str0ngP@ss',
-    minLength: 8,
-    description: 'Plain-text password; stored as a bcrypt hash.',
-  })
-  @IsString()
-  @MinLength(8)
-  @MaxLength(72) // bcrypt only hashes the first 72 bytes
-  password!: string;
-
-  @ApiProperty({
     example: '+971',
     description: 'Dial code in E.164 form, stored on its own field.',
   })

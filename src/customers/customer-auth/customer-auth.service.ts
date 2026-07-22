@@ -3,7 +3,6 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
 import { Role as DbRole } from '@prisma/client';
 import { AuthTokensDto } from '../../auth/dto/auth-tokens.dto';
 import { TokenService } from '../../auth/token.service';
@@ -12,9 +11,6 @@ import { normalizePhone } from '../../common/utils/phone.util';
 import { PrismaService } from '../../database/prisma.service';
 import { OtpService } from '../../otp/otp.service';
 import { RegisterCustomerDto } from './dto/register-customer.dto';
-
-/** bcrypt work factor for password hashing. */
-const BCRYPT_ROUNDS = 12;
 
 export interface RequestOtpResult {
   phone: string;
@@ -124,10 +120,11 @@ export class CustomerAuthService {
   }
 
   /**
-   * Email + password self-registration for a customer. Combines the separate
-   * dial code and national number into an E.164 `phone`, stores the dial code
-   * on its own column, hashes the password, grants the `customer` role, and
-   * returns a fresh session so the client is logged in immediately.
+   * Self-registration for a customer. Combines the separate dial code and
+   * national number into an E.164 `phone`, stores the dial code on its own
+   * column, grants the `customer` role, and returns a fresh session so the
+   * client is logged in immediately. No password is set — customers sign back
+   * in through the phone OTP flow.
    */
   async register(dto: RegisterCustomerDto): Promise<AuthTokensDto> {
     const email = dto.email.trim().toLowerCase();
@@ -144,8 +141,6 @@ export class CustomerAuthService {
       );
     }
 
-    const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
-
     const user = await this.prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
         data: {
@@ -153,7 +148,6 @@ export class CustomerAuthService {
           phone,
           countryCode,
           fullName: dto.fullName,
-          passwordHash,
         },
       });
       await tx.userRole.create({

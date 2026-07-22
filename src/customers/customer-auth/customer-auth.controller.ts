@@ -28,7 +28,7 @@ export class CustomerAuthController {
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @ApiOperation({
     summary:
-      'Register a customer with full name, email, password and phone (dial code + number as separate fields). Returns session tokens.',
+      'Register a customer with full name, email and phone (dial code + number as separate fields). Returns session tokens.',
   })
   @ApiCreatedResponse({ type: AuthTokensDto })
   @ApiConflictResponse({ description: 'Email or phone already registered' })
@@ -38,7 +38,9 @@ export class CustomerAuthController {
 
   @Post('otp/send')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Send a customer login/signup OTP to a phone number' })
+  @ApiOperation({
+    summary: 'Send a customer login/signup OTP to a phone number',
+  })
   requestOtp(@Body() dto: RequestOtpDto): Promise<RequestOtpResult> {
     return this.customerAuth.requestOtp(dto.phone);
   }
