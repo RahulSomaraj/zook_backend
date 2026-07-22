@@ -27,11 +27,29 @@ export class FcmPushSender extends PushSender implements OnModuleInit {
       return;
     }
     try {
-      admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
+      admin.initializeApp({
+        credential: admin.credential.cert(this.parseServiceAccount(raw)),
+      });
       this.enabled = true;
       this.logger.log('Firebase Admin SDK initialized');
     } catch (err) {
       this.logger.error(`Firebase init failed: ${(err as Error).message}`);
+    }
+  }
+
+  private parseServiceAccount(raw: string): admin.ServiceAccount {
+    const value = raw.trim();
+    const json = value.startsWith('{')
+      ? value
+      : Buffer.from(value, 'base64').toString('utf8');
+    try {
+      return JSON.parse(json) as admin.ServiceAccount;
+    } catch {
+      // A service account pasted into .env keeps the private_key PEM's real
+      // line breaks; JSON needs them escaped.
+      return JSON.parse(
+        json.replace(/\r/g, '').replace(/\n/g, '\\n'),
+      ) as admin.ServiceAccount;
     }
   }
 

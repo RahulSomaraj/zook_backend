@@ -1,5 +1,14 @@
 import { Body, Controller, HttpCode, Post } from '@nestjs/common';
-import { ApiOperation, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger';
+import {
+  ApiConflictResponse,
+  ApiCreatedResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { AuthTokensDto } from '../../auth/dto/auth-tokens.dto';
+import { RegisterCustomerDto } from './dto/register-customer.dto';
 import { RequestOtpDto } from './dto/otpRequestDto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import {
@@ -12,6 +21,20 @@ import {
 @Controller('auth/customer')
 export class CustomerAuthController {
   constructor(private readonly customerAuth: CustomerAuthService) {}
+
+  @Post('register')
+  @HttpCode(201)
+  // Tighter than the global limit: registration is a spam/abuse target.
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @ApiOperation({
+    summary:
+      'Register a customer with full name, email, password and phone (dial code + number as separate fields). Returns session tokens.',
+  })
+  @ApiCreatedResponse({ type: AuthTokensDto })
+  @ApiConflictResponse({ description: 'Email or phone already registered' })
+  register(@Body() dto: RegisterCustomerDto): Promise<AuthTokensDto> {
+    return this.customerAuth.register(dto);
+  }
 
   @Post('otp/send')
   @HttpCode(200)

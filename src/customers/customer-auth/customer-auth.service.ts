@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
 import { Role as DbRole } from '@prisma/client';
 import { AuthTokensDto } from '../../auth/dto/auth-tokens.dto';
 import { TokenService } from '../../auth/token.service';
@@ -6,6 +11,10 @@ import { Role } from '../../common/enums/role.enum';
 import { normalizePhone } from '../../common/utils/phone.util';
 import { PrismaService } from '../../database/prisma.service';
 import { OtpService } from '../../otp/otp.service';
+import { RegisterCustomerDto } from './dto/register-customer.dto';
+
+/** bcrypt work factor for password hashing. */
+const BCRYPT_ROUNDS = 12;
 
 export interface RequestOtpResult {
   phone: string;
@@ -112,6 +121,78 @@ export class CustomerAuthService {
         },
       },
     };
+  }
+
+  /**
+   * Email + password self-registration for a customer. Combines the separate
+   * dial code and national number into an E.164 `phone`, stores the dial code
+   * on its own column, hashes the password, grants the `customer` role, and
+   * returns a fresh session so the client is logged in immediately.
+   */
+  async register(dto: RegisterCustomerDto): Promise<AuthTokensDto> {
+    const email = dto.email.trim().toLowerCase();
+    const countryCode = dto.countryCode.trim();
+    const phone = this.composePhone(countryCode, dto.phone);
+
+    const clash = await this.prisma.user.findFirst({
+      where: { OR: [{ email }, { phone }] },
+      select: { id: true },
+    });
+    if (clash) {
+      throw new ConflictException(
+        'An account with this email or phone already exists',
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email,
+          phone,
+          countryCode,
+          fullName: dto.fullName,
+          passwordHash,
+        },
+      });
+      await tx.userRole.create({
+        data: { userId: created.id, role: DbRole.customer },
+      });
+      return created;
+    });
+
+    const tokens = await this.tokens.issueTokens({
+      id: user.id,
+      email: user.email,
+      roles: [Role.CUSTOMER],
+      adminLevel: null,
+    });
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      tokenType: 'Bearer',
+      expiresIn: tokens.expiresIn,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        roles: [Role.CUSTOMER],
+        adminLevel: null,
+        isVerified: null,
+        storeName: null,
+      },
+    };
+  }
+
+  /**
+   * Join a separate dial code (+971) and a national number (501234567) into a
+   * single E.164 string (+971501234567) for storage and uniqueness checks.
+   */
+  private composePhone(countryCode: string, nationalNumber: string): string {
+    const nationalDigits = nationalNumber.replace(/\D/g, '');
+    return normalizePhone(`${countryCode}${nationalDigits}`);
   }
 
   private syntheticEmailForPhone(phone: string): string {
