@@ -49,15 +49,18 @@ export class ListingsService {
     const limit = query.limit ?? 20;
 
     const where: any = { vendorId };
-    if (query.status === 'live') {
-      where.isActive = true;
-      where.stockQty = { gt: 0 };
-    } else if (query.status === 'paused') {
-      where.isActive = false;
-    } else if (query.status === 'low_stock') {
-      where.isActive = true;
-      where.stockQty = { gt: 0, lte: 3 };
+    if (query.status && query.status !== 'all') {
+      where.status = query.status;
     }
+
+    if (query.search) {
+    where.OR = [
+      { description: { contains: query.search, mode: 'insensitive' } },
+      { color: { contains: query.search, mode: 'insensitive' } },
+      { catalog: { is: { model: { contains: query.search, mode: 'insensitive' } } } },
+      { catalog: { is: { brand: { is: { name: { contains: query.search, mode: 'insensitive' } } } } } },
+    ];
+    } 
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({

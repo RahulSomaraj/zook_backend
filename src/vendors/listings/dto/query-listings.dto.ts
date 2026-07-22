@@ -1,12 +1,19 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class QueryListingsDto {
-  @ApiPropertyOptional({ enum: ['all', 'live', 'paused', 'low_stock'] })
+  @ApiPropertyOptional({ enum: ['all', 'pending', 'approved', 'rejected'] })
   @IsOptional()
-  @IsIn(['all', 'live', 'paused', 'low_stock'])
-  status?: 'all' | 'live' | 'paused' | 'low_stock';
+  @IsIn(['all', 'pending', 'approved', 'rejected'])
+  status?: 'all' | 'pending' | 'approved' | 'rejected';
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
@@ -21,4 +28,12 @@ export class QueryListingsDto {
   @IsInt()
   @Min(1)
   limit?: number;
+
+  @ApiPropertyOptional({ description: 'Free-text search term', maxLength: 100 })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MaxLength(100)
+  search?: string;
+
 }
