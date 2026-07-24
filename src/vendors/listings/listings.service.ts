@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { CatalogStatus, ProductSource } from '@prisma/client';
+import { CatalogStatus, ProductSource, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { QueryListingsDto } from './dto/query-listings.dto';
@@ -7,6 +7,9 @@ import { UpdateListingDto } from './dto/update-listing.dto';
 
 @Injectable()
 export class ListingsService {
+  /** A live listing at or below this stock level is surfaced as "low-stock". */
+  private static readonly LOW_STOCK_THRESHOLD = 5;
+
   constructor(private readonly prisma: PrismaService) {}
 
   private async getVendorId(userId: string) {
@@ -49,8 +52,27 @@ export class ListingsService {
     const limit = query.limit ?? 20;
 
     const where: any = { vendorId };
-    if (query.status && query.status !== 'all') {
-      where.status = query.status;
+    // Dashboard status buckets:
+    //   all       → no filter
+    //   pending   → awaiting admin approval
+    //   live      → approved and active (currently listed for sale)
+    //   low-stock → live with stock at or below the low-stock threshold
+    switch (query.status) {
+      case 'pending':
+        where.status = ProductStatus.pending;
+        break;
+      case 'live':
+        where.status = ProductStatus.approved;
+        where.isActive = true;
+        break;
+      case 'low-stock':
+        where.status = ProductStatus.approved;
+        where.isActive = true;
+        where.stockQty = { lte: ListingsService.LOW_STOCK_THRESHOLD };
+        break;
+      case 'all':
+      default:
+        break;
     }
 
     if (query.search) {
@@ -73,7 +95,11 @@ export class ListingsService {
       this.prisma.product.count({ where }),
     ]);
 
-    return { items, total, page, limit };
+    // Pickup address (area + lat/lng location) is the same for every listing,
+    // so it is returned once at the top level rather than per item.
+    const pickupAddress = await this.getPickupAddress(userId);
+
+    return { items, total, page, limit, pickupAddress };
   }
 
   async findOne(userId: string, id: string) {
