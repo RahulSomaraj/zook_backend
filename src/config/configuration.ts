@@ -72,6 +72,38 @@ export default () => ({
     ttl: parseInt(process.env.THROTTLE_TTL ?? '60000', 10),
     limit: parseInt(process.env.THROTTLE_LIMIT ?? '100', 10),
   },
+  redis: {
+    // Connection URL, e.g. redis://:password@host:6379/0 (rediss:// for TLS).
+    // When empty, Redis-backed features (OTP cooldown, distributed throttling)
+    // fall back to safe degraded behaviour instead of crashing.
+    url: process.env.REDIS_URL ?? '',
+  },
+  otp: {
+    // Local (self-managed) code lifetime, in seconds. Only used by the local
+    // provider; the Twilio Verify provider owns its own TTL server-side.
+    ttlSeconds: parseInt(process.env.OTP_TTL_SECONDS ?? '300', 10),
+    // Which delivery provider each audience uses: 'twilio_verify' | 'local'.
+    customerProvider: process.env.OTP_CUSTOMER_PROVIDER ?? 'twilio_verify',
+    vendorProvider: process.env.OTP_VENDOR_PROVIDER ?? 'local',
+    // Per-phone abuse controls (enforced in Redis, before any paid send).
+    resendCooldownSeconds: parseInt(
+      process.env.OTP_RESEND_COOLDOWN_SECONDS ?? '30',
+      10,
+    ),
+    dailyMaxPerPhone: parseInt(process.env.OTP_DAILY_MAX_PER_PHONE ?? '5', 10),
+  },
+  twilio: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID ?? '',
+    authToken: process.env.TWILIO_AUTH_TOKEN ?? '',
+    // Verify service SID (VAxx…). Configure code length (6) + channel in the
+    // Twilio console; enable Fraud Guard + geo-permissions there too.
+    verifyServiceSid: process.env.TWILIO_VERIFY_SERVICE_SID ?? '',
+    // Displayed to the client for countdown UI. Match the Verify service TTL
+    // (Twilio default is 10 minutes).
+    verifyTtlSeconds: parseInt(process.env.TWILIO_VERIFY_TTL_SECONDS ?? '600', 10),
+    // Network timeout (ms) for calls to the Twilio API.
+    timeoutMs: parseInt(process.env.TWILIO_TIMEOUT_MS ?? '8000', 10),
+  },
   firebase: {
     // Service-account JSON (stringify the downloaded .json file into one line).
     // Required for FCM push. When absent, FcmPushSender logs a warning and skips.

@@ -52,6 +52,58 @@ export const envValidationSchema = Joi.object({
   THROTTLE_TTL: Joi.number().default(60000),
   THROTTLE_LIMIT: Joi.number().default(100),
 
+  // Redis connection URL (redis:// or rediss://). Backs the per-phone OTP
+  // cooldown/daily-cap and, when present, distributed request throttling.
+  // Optional: when unset those features degrade safely instead of crashing.
+  REDIS_URL: Joi.string().uri({ scheme: ['redis', 'rediss'] }).allow('').optional(),
+
+  // OTP delivery provider selection per audience.
+  OTP_CUSTOMER_PROVIDER: Joi.string()
+    .valid('twilio_verify', 'local')
+    .default('twilio_verify'),
+  OTP_VENDOR_PROVIDER: Joi.string()
+    .valid('twilio_verify', 'local')
+    .default('local'),
+  OTP_TTL_SECONDS: Joi.number().default(300),
+  OTP_RESEND_COOLDOWN_SECONDS: Joi.number().default(30),
+  OTP_DAILY_MAX_PER_PHONE: Joi.number().default(5),
+
+  // Twilio — each credential is required when EITHER audience uses
+  // 'twilio_verify'. Two chained .when()s give the logical OR: if either
+  // provider is Twilio, the value must be a non-empty string.
+  TWILIO_ACCOUNT_SID: Joi.string()
+    .allow('')
+    .when('OTP_CUSTOMER_PROVIDER', {
+      is: 'twilio_verify',
+      then: Joi.string().pattern(/^AC[0-9a-fA-F]{32}$/).required(),
+    })
+    .when('OTP_VENDOR_PROVIDER', {
+      is: 'twilio_verify',
+      then: Joi.string().pattern(/^AC[0-9a-fA-F]{32}$/).required(),
+    }),
+  TWILIO_AUTH_TOKEN: Joi.string()
+    .allow('')
+    .when('OTP_CUSTOMER_PROVIDER', {
+      is: 'twilio_verify',
+      then: Joi.string().min(1).required(),
+    })
+    .when('OTP_VENDOR_PROVIDER', {
+      is: 'twilio_verify',
+      then: Joi.string().min(1).required(),
+    }),
+  TWILIO_VERIFY_SERVICE_SID: Joi.string()
+    .allow('')
+    .when('OTP_CUSTOMER_PROVIDER', {
+      is: 'twilio_verify',
+      then: Joi.string().pattern(/^VA[0-9a-fA-F]{32}$/).required(),
+    })
+    .when('OTP_VENDOR_PROVIDER', {
+      is: 'twilio_verify',
+      then: Joi.string().pattern(/^VA[0-9a-fA-F]{32}$/).required(),
+    }),
+  TWILIO_VERIFY_TTL_SECONDS: Joi.number().default(600),
+  TWILIO_TIMEOUT_MS: Joi.number().default(8000),
+
   // Firebase service-account JSON (stringified). Required for FCM push;
   // when absent the sender degrades gracefully (logs a warning, skips push).
   FIREBASE_SERVICE_ACCOUNT: Joi.string().allow('').optional(),

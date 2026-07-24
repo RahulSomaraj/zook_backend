@@ -1,96 +1,66 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcryptjs';
-import { randomInt } from 'crypto';
-import { PrismaService } from '../database/prisma.service';
+import { normalizePhone } from '../common/utils/phone.util';
+import { OtpRateLimiterService } from './otp-rate-limiter.service';
+import { LocalOtpProvider } from './providers/local-otp.provider';
+import { IssuedOtp, OtpProvider } from './providers/otp-provider.interface';
+import { TwilioVerifyProvider } from './providers/twilio-verify.provider';
 
-export interface IssuedOtp {
-  expiresInSeconds: number;
-  /** Returned only outside production so the flow is testable without SMS. */
-  devCode?: string;
-}
+export type { IssuedOtp } from './providers/otp-provider.interface';
 
 /**
- * Issues and verifies one-time phone codes. SMS delivery is stubbed for now —
- * the code is logged (and echoed in non-prod) instead of sent. Swap the
- * `deliver()` call for a real SMS provider later without changing callers.
+ * Facade over the OTP providers. Picks a provider per purpose from config
+ * (customer vs vendor), enforces the per-phone Redis rate limit on send, and
+ * normalizes the phone once at the boundary. Callers (customer/vendor auth)
+ * keep the same `issue` / `verify` signatures as before — the strategy swap is
+ * invisible to them.
  */
 @Injectable()
 export class OtpService {
   private readonly logger = new Logger(OtpService.name);
-  private readonly codeLength = 4; // matches the 4-box OTP UI
-  private readonly ttlMs: number;
-  private readonly maxAttempts = 5;
-  private readonly isProd: boolean;
+  private readonly customerProviderName: string;
+  private readonly vendorProviderName: string;
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly local: LocalOtpProvider,
+    private readonly twilio: TwilioVerifyProvider,
+    private readonly rateLimiter: OtpRateLimiterService,
     config: ConfigService,
   ) {
-    this.ttlMs = (config.get<number>('otp.ttlSeconds') ?? 300) * 1000;
-    this.isProd = config.get<string>('app.env') === 'production';
+    this.customerProviderName =
+      config.get<string>('otp.customerProvider') ?? 'twilio_verify';
+    this.vendorProviderName =
+      config.get<string>('otp.vendorProvider') ?? 'local';
   }
 
-  async issue(phone: string, purpose = 'vendor_auth'): Promise<IssuedOtp> {
-    const code = this.generateCode();
-    const codeHash = await bcrypt.hash(code, 10);
-    const expiresAt = new Date(Date.now() + this.ttlMs);
+  async issue(rawPhone: string, purpose = 'vendor_auth'): Promise<IssuedOtp> {
+    const phone = normalizePhone(rawPhone);
+    // Abuse gate first — never spend a paid send on a throttled number.
+    await this.rateLimiter.assertCanSend(phone, purpose);
 
-    // Invalidate any still-active codes for this phone, then store the new one.
-    await this.prisma.phoneVerification.updateMany({
-      where: { phone, consumedAt: null },
-      data: { consumedAt: new Date() },
-    });
-    await this.prisma.phoneVerification.create({
-      data: { phone, codeHash, purpose, expiresAt },
-    });
+    const provider = this.providerFor(purpose);
+    const issued = await provider.issue(phone, purpose);
 
-    this.deliver(phone, code);
-    return {
-      expiresInSeconds: Math.floor(this.ttlMs / 1000),
-      ...(this.isProd ? {} : { devCode: code }),
-    };
+    // Only arm the cooldown once the send actually went out.
+    await this.rateLimiter.startCooldown(phone, purpose);
+    return issued;
   }
 
   async verify(
-    phone: string,
+    rawPhone: string,
     code: string,
     purpose = 'vendor_auth',
   ): Promise<boolean> {
-    const record = await this.prisma.phoneVerification.findFirst({
-      where: {
-        phone,
-        purpose,
-        consumedAt: null,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-    if (!record || record.attempts >= this.maxAttempts) return false;
-
-    const matches = await bcrypt.compare(code, record.codeHash);
-    if (!matches) {
-      await this.prisma.phoneVerification.update({
-        where: { id: record.id },
-        data: { attempts: { increment: 1 } },
-      });
-      return false;
-    }
-
-    await this.prisma.phoneVerification.update({
-      where: { id: record.id },
-      data: { consumedAt: new Date() },
-    });
-    return true;
+    const phone = normalizePhone(rawPhone);
+    return this.providerFor(purpose).verify(phone, code, purpose);
   }
 
-  private generateCode(): string {
-    const max = 10 ** this.codeLength;
-    return randomInt(0, max).toString().padStart(this.codeLength, '0');
-  }
-
-  /** Stubbed SMS delivery. Replace with a real provider (Twilio/Unifonic/...). */
-  private deliver(phone: string, code: string): void {
-    this.logger.log(`[stub-sms] OTP for ${phone}: ${code}`);
+  /** Map a purpose to its configured provider. Vendor is the safe default. */
+  private providerFor(purpose: string): OtpProvider {
+    const name =
+      purpose === 'customer_auth'
+        ? this.customerProviderName
+        : this.vendorProviderName;
+    return name === 'twilio_verify' ? this.twilio : this.local;
   }
 }

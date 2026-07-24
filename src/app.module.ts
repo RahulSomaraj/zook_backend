@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
+import { RedisModule } from './redis/redis.module';
 import { AppService } from './app.service';
 import configuration from './config/configuration';
 import { envValidationSchema } from './config/env.validation';
@@ -33,9 +34,14 @@ import { CountriesModule } from './countries/countries.module';
       validationSchema: envValidationSchema,
       validationOptions: { abortEarly: true },
     }),
+    RedisModule,
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
+        // In-memory store — fine for the current single PM2 instance. When
+        // scaling to multiple instances, back this with Redis (e.g.
+        // @nest-lab/throttler-storage-redis) so counters are shared. The
+        // per-phone OTP cooldown already uses Redis via OtpRateLimiterService.
         throttlers: [
           {
             ttl: config.get<number>('throttle.ttl')!,

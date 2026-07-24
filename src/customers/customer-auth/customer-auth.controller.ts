@@ -38,6 +38,10 @@ export class CustomerAuthController {
 
   @Post('otp/send')
   @HttpCode(200)
+  // Edge guard against SMS pumping / toll fraud (per client IP). The per-phone
+  // cooldown + daily cap in OtpService is the primary control; this backstops
+  // IP-level floods before they fan out across many numbers.
+  @Throttle({ default: { ttl: 60_000, limit: 3 } })
   @ApiOperation({
     summary: 'Send a customer login/signup OTP to a phone number',
   })
@@ -47,6 +51,9 @@ export class CustomerAuthController {
 
   @Post('otp/verify')
   @HttpCode(200)
+  // Brute-force guard on code submission (per client IP), on top of Twilio's
+  // own per-verification attempt cap.
+  @Throttle({ default: { ttl: 60_000, limit: 6 } })
   @ApiOperation({
     summary:
       'Verify a customer OTP. Returns session tokens and auto-creates the customer account on first login.',

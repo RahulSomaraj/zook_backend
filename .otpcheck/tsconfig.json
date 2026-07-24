@@ -1,0 +1,5 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "skipLibCheck": true, "noEmit": true, "types": [] },
+  "include": ["twilio.d.ts","ioredis.d.ts","../src/redis/redis.module.ts","../src/redis/redis.constants.ts","../src/otp/otp-rate-limiter.service.ts","../src/otp/providers/twilio-verify.provider.ts","../src/otp/providers/otp-provider.interface.ts"]
+}

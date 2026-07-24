@@ -7,9 +7,9 @@ export class VerifyOtpDto {
   @Matches(/^[+]?[0-9\s()\-.]{6,20}$/, { message: 'Invalid phone number' })
   phone!: string;
 
-  @ApiProperty({ example: '1234', description: '4-digit code from SMS.' })
+  @ApiProperty({ example: '123456', description: '6-digit code from SMS.' })
   @IsString()
-  @Length(4, 4)
-  @Matches(/^[0-9]{4}$/, { message: 'Code must be 4 digits' })
+  @Length(6, 6)
+  @Matches(/^[0-9]{6}$/, { message: 'Code must be 6 digits' })
   code!: string;
 }
