@@ -136,6 +136,8 @@ model User {
   passwordHash  String?  @map("password_hash")
   emailVerified Boolean  @default(false) @map("email_verified")
   phoneVerified Boolean  @default(false) @map("phone_verified")
+  // Whether the user accepted the terms of service & privacy policy at signup.
+  termsAccepted Boolean  @default(false) @map("terms_accepted")
   createdAt     DateTime @default(now()) @map("created_at")
 
   // A person can hold several roles at once (e.g. customer + vendor); the grant
@@ -381,9 +383,10 @@ model ProductCatalog {
 
   // Brand/category are restricted on delete: they are soft-deleted, so a
   // referenced row always still exists and listings are never orphaned.
-  brand    Brand    @relation(fields: [brandId], references: [id], onDelete: Restrict)
-  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  products Product[]
+  brand          Brand                  @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  category       Category               @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  products       Product[]
+  specifications ProductSpecification[]
 
   @@unique([brandId, model, year])
   @@index([categoryId])
@@ -391,6 +394,26 @@ model ProductCatalog {
   @@index([status])
   @@index([deletedAt])
   @@map("product_catalog")
+}
+
+// Normalized, buyer-facing specifications for a catalog entry (e.g. "Display" →
+// "6.1\" Super Retina XDR"). One catalog entry has many spec rows, ordered by
+// `sortOrder`. `label` is unique per catalog so a spec has a single value.
+// Cascade-deleted with the catalog entry, unlike the free-form `specs` JSON.
+model ProductSpecification {
+  id        String   @id @default(uuid()) @db.Uuid
+  catalogId String   @map("catalog_id") @db.Uuid
+  label     String // attribute name, e.g. "Chipset"
+  value     String // attribute value, e.g. "A16 Bionic"
+  group     String? // optional section, e.g. "Display"
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  catalog ProductCatalog @relation(fields: [catalogId], references: [id], onDelete: Cascade)
+
+  @@unique([catalogId, label])
+  @@index([catalogId])
+  @@map("product_specifications")
 }
 
 model Product {

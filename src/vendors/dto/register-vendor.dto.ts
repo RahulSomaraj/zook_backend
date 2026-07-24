@@ -2,6 +2,8 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Emirate } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
+  Equals,
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsString,
@@ -59,4 +61,18 @@ export class RegisterVendorDto {
   @ApiProperty({ enum: Emirate, example: Emirate.dubai })
   @IsEnum(Emirate)
   emirate!: Emirate;
+
+  @ApiProperty({
+    example: true,
+    description:
+      'Must be true — confirms the vendor accepted the terms of service and privacy policy.',
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    value === true || value === 'true' ? true : value === false || value === 'false' ? false : value,
+  )
+  @IsBoolean()
+  @Equals(true, {
+    message: 'You must accept the terms of service and privacy policy',
+  })
+  acceptedTermsAndPolicy!: boolean;
 }

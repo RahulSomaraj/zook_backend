@@ -11,6 +11,8 @@ import { AdminKycController } from './admin-kyc.controller';
 import { AdminKycService } from './admin-kyc.service';
 import { AdminOrdersController } from './admin-orders.controller';
 import { AdminOrdersService } from './admin-orders.service';
+import { AdminProductSpecificationsController } from './admin-product-specifications.controller';
+import { AdminProductSpecificationsService } from './admin-product-specifications.service';
 import { AdminProductsController } from './admin-products.controller';
 import { AdminVendorProductsController } from './admin-vendor-products.controller';
 import { AdminVendorProductsService } from './admin-vendor-products.service';
@@ -22,6 +24,7 @@ import { AdminVendorsService } from './admin-vendors.service';
     AdminKycController,
     AdminOrdersController,
     AdminProductsController,
+    AdminProductSpecificationsController,
     AdminVendorProductsController,
     AdminVendorsController,
     AdminCatalogController,
@@ -32,6 +35,7 @@ import { AdminVendorsService } from './admin-vendors.service';
   providers: [
     AdminKycService,
     AdminOrdersService,
+    AdminProductSpecificationsService,
     AdminVendorProductsService,
     AdminVendorsService,
     AdminCatalogService,

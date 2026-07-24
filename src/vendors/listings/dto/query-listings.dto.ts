@@ -10,10 +10,17 @@ import {
 } from 'class-validator';
 
 export class QueryListingsDto {
-  @ApiPropertyOptional({ enum: ['all', 'pending', 'approved', 'rejected'] })
+  @ApiPropertyOptional({
+    enum: ['all', 'pending', 'live', 'low-stock'],
+    description:
+      'Filter listings: all; pending (awaiting approval); live (approved & active); low-stock (live with stock at or below the low-stock threshold).',
+  })
   @IsOptional()
-  @IsIn(['all', 'pending', 'approved', 'rejected'])
-  status?: 'all' | 'pending' | 'approved' | 'rejected';
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
+  @IsIn(['all', 'pending', 'live', 'low-stock'])
+  status?: 'all' | 'pending' | 'live' | 'low-stock';
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()

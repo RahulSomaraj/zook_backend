@@ -129,6 +129,7 @@ export class VendorAuthService {
           phone,
           fullName: dto.ownerFullName,
           phoneVerified: true,
+          termsAccepted: dto.acceptedTermsAndPolicy,
         },
       });
       await tx.userRole.create({
