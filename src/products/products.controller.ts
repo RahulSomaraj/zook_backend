@@ -1,6 +1,7 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
+import { QueryProductsDto } from './dto/query-products.dto';
 
 @ApiTags('products')
 @Controller('products')
@@ -8,36 +9,32 @@ export class ProductsController {
   constructor(private readonly products: ProductsService) {}
 
   @Get('recently-listed')
-  @ApiOperation({ summary: 'Get recently listed buyer-visible products' })
+  @ApiOperation({
+    deprecated: true,
+    summary: 'DEPRECATED — use GET /products?sort=recent&limit=20',
+  })
   @ApiQuery({ name: 'country', required: false, description: 'Filter by country ISO code (e.g. AE)' })
   recentlyListed(@Query('country') country?: string) {
     return this.products.getRecentlyListed(country);
   }
 
   @Get('top-picks')
-  @ApiOperation({ summary: 'Get top picks buyer-visible products' })
+  @ApiOperation({
+    deprecated: true,
+    summary: 'DEPRECATED — use GET /products?sort=top_picks&limit=20',
+  })
   @ApiQuery({ name: 'country', required: false, description: 'Filter by country ISO code (e.g. AE)' })
   topPicks(@Query('country') country?: string) {
     return this.products.getTopPicks(country);
   }
 
   @Get()
-  @ApiOperation({ summary: 'List buyer-visible products, optionally filtered by category and country' })
-  @ApiQuery({
-    name: 'category_id',
-    required: false,
-    description: 'Filter products by category id',
+  @ApiOperation({
+    summary:
+      'List buyer-visible products with sort, filters and pagination. Replaces recently-listed (sort=recent) and top-picks (sort=top_picks).',
   })
-  @ApiQuery({
-    name: 'country',
-    required: false,
-    description: 'Filter products by country ISO code (e.g. AE)',
-  })
-  list(
-    @Query('category_id') categoryId?: string,
-    @Query('country') country?: string,
-  ) {
-    return this.products.list(categoryId, country);
+  list(@Query() query: QueryProductsDto) {
+    return this.products.list(query);
   }
 
   @Get(':id')

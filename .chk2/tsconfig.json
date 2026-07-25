@@ -1,0 +1,5 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "skipLibCheck": true, "noEmit": true, "types": [] },
+  "include": ["../src/auth/social/supabase-token.verifier.ts", "../src/auth/social/dto/social-login.dto.ts"]
+}

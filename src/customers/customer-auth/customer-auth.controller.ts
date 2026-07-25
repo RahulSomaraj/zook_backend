@@ -8,6 +8,7 @@ import {
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthTokensDto } from '../../auth/dto/auth-tokens.dto';
+import { SocialLoginDto } from '../../auth/social/dto/social-login.dto';
 import { RegisterCustomerDto } from './dto/register-customer.dto';
 import { RequestOtpDto } from './dto/otpRequestDto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
@@ -61,5 +62,17 @@ export class CustomerAuthController {
   @ApiUnauthorizedResponse({ description: 'Invalid or expired code' })
   verifyOtp(@Body() dto: VerifyOtpDto): Promise<VerifyOtpResult> {
     return this.customerAuth.verifyOtp(dto.phone, dto.code);
+  }
+
+  @Post('social/google')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @ApiOperation({
+    summary:
+      'Sign in / sign up a customer with Google via Supabase. Auto-creates the account on first login; phone is verified later at checkout.',
+  })
+  @ApiUnauthorizedResponse({ description: 'Invalid or expired social token' })
+  socialGoogle(@Body() dto: SocialLoginDto) {
+    return this.customerAuth.socialGoogle(dto.supabaseAccessToken);
   }
 }

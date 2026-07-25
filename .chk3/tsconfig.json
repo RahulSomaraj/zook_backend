@@ -1,0 +1,6 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "skipLibCheck": true, "noEmit": true },
+  "include": ["../src/products/products.service.ts", "../src/products/products.controller.ts", "../src/products/dto/query-products.dto.ts"],
+  "exclude": ["../src/**/*.spec.ts"]
+}

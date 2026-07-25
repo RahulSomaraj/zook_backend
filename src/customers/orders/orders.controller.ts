@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '../../auth/auth.types';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { PhoneVerifiedGuard } from '../../auth/guards/phone-verified.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -24,6 +25,9 @@ export class OrdersController {
   }
 
   @Post('checkout')
+  // Phone gate: social-signup customers must verify a phone (via the OTP flow)
+  // before their first order. Returns 403 PHONE_VERIFICATION_REQUIRED if not.
+  @UseGuards(PhoneVerifiedGuard)
   @ApiOperation({ summary: 'Checkout the authenticated customer cart into an order' })
   checkout(@CurrentUser() user: AuthenticatedUser, @Body() dto: CheckoutDto) {
     return this.order.checkout(user.id, dto);

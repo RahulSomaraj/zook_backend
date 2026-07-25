@@ -91,6 +91,16 @@ export class AuthService {
   }
 
   /**
+   * Issue a fresh session (access + refresh) for an already-authenticated user
+   * id — the role-agnostic path shared by password, OTP and social sign-in.
+   * Runs the same per-role status guards as refresh.
+   */
+  async issueSession(userId: string): Promise<AuthTokensDto> {
+    const result = await this.issueFor(userId);
+    return this.toResponse(result);
+  }
+
+  /**
    * Loads a user, re-validates any role-specific status guards, and signs a
    * fresh token pair. Role-agnostic so a single refresh endpoint serves every
    * user type; a user holding several roles must pass every relevant guard.

@@ -6,6 +6,8 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { TokenService } from './token.service';
+import { SocialAuthService } from './social/social-auth.service';
+import { SupabaseTokenVerifier } from './social/supabase-token.verifier';
 
 @Module({
   imports: [
@@ -15,7 +17,19 @@ import { TokenService } from './token.service';
     JwtModule.register({}),
   ],
   controllers: [AuthController],
-  providers: [AuthService, TokenService, JwtStrategy],
-  exports: [AuthService, TokenService, JwtStrategy, PassportModule],
+  providers: [
+    AuthService,
+    TokenService,
+    JwtStrategy,
+    SupabaseTokenVerifier,
+    SocialAuthService,
+  ],
+  exports: [
+    AuthService,
+    TokenService,
+    JwtStrategy,
+    PassportModule,
+    SocialAuthService,
+  ],
 })
 export class AuthModule {}

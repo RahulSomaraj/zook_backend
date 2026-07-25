@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, VendorStatus } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
+import { buildMeta } from '../common/dto/pagination.dto';
+import { ProductSort, QueryProductsDto } from './dto/query-products.dto';
 
 const productListInclude = {
   vendor: {
@@ -26,42 +28,56 @@ type ProductListRow = Prisma.ProductGetPayload<{
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Unified buyer product list: sort + filters + pagination. Returns
+   * `{ items, meta }` where `meta` carries paging info.
+   */
+  async list(query: QueryProductsDto) {
+    const where = this.buildWhere(query);
+    const orderBy = this.buildOrderBy(query.sort);
+
+    // Single round trip: page of rows + total count for the same filter.
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.product.findMany({
+        where,
+        include: productListInclude,
+        orderBy,
+        skip: query.skip,
+        take: query.limit,
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    return {
+      items: rows.map((item) => this.toSummary(item)),
+      meta: buildMeta(total, query.page, query.limit),
+    };
+  }
+
+  /**
+   * @deprecated Use `GET /products?sort=recent&limit=20`. Kept as a thin alias
+   * so existing clients keep working; delete once callers migrate.
+   */
   async getRecentlyListed(countryCode?: string) {
-    const items = await this.prisma.product.findMany({
-      where: this.buyerVisibleWhere(countryCode),
-      include: productListInclude,
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-    });
-
-    return { items: items.map((item) => this.toSummary(item)) };
+    return this.legacyList(ProductSort.RECENT, countryCode);
   }
 
+  /**
+   * @deprecated Use `GET /products?sort=top_picks&limit=20`. Kept as a thin
+   * alias so existing clients keep working; delete once callers migrate.
+   */
   async getTopPicks(countryCode?: string) {
+    return this.legacyList(ProductSort.TOP_PICKS, countryCode);
+  }
+
+  /** Backward-compatible shape (`{ items }`, no meta) for the old endpoints. */
+  private async legacyList(sort: ProductSort, countryCode?: string) {
     const items = await this.prisma.product.findMany({
       where: this.buyerVisibleWhere(countryCode),
       include: productListInclude,
-      // Until we have popularity/curation signals, top picks use a simple
-      // premium-first heuristic.
-      orderBy: [{ price: 'desc' }, { createdAt: 'desc' }],
+      orderBy: this.buildOrderBy(sort),
       take: 20,
     });
-
-    return { items: items.map((item) => this.toSummary(item)) };
-  }
-
-  async list(categoryId?: string, countryCode?: string) {
-    const where = this.buyerVisibleWhere(countryCode);
-    if (categoryId) {
-      where.catalog = { categoryId };
-    }
-
-    const items = await this.prisma.product.findMany({
-      where,
-      include: productListInclude,
-      orderBy: { createdAt: 'desc' },
-    });
-
     return { items: items.map((item) => this.toSummary(item)) };
   }
 
@@ -159,6 +175,67 @@ export class ProductsService {
       stockQty: { gt: 0 },
       OR: [{ vendorId: null }, { vendor: approvedVendor }],
     };
+  }
+
+  /**
+   * Buyer-visible base scope + the optional filters from the query. Catalog
+   * filters (category/brand/year/search) are collected into one nested
+   * `catalog` condition.
+   */
+  private buildWhere(q: QueryProductsDto): Prisma.ProductWhereInput {
+    const where = this.buyerVisibleWhere(q.country);
+
+    if (q.source) where.source = q.source;
+    if (q.condition) where.conditionGrade = q.condition;
+    if (q.vendor_id) where.vendorId = q.vendor_id;
+    if (q.storage) {
+      where.storageVariant = { equals: q.storage, mode: 'insensitive' };
+    }
+    if (q.color) {
+      where.color = { equals: q.color, mode: 'insensitive' };
+    }
+
+    if (q.min_price != null || q.max_price != null) {
+      const price: { gte?: number; lte?: number } = {};
+      if (q.min_price != null) price.gte = q.min_price;
+      if (q.max_price != null) price.lte = q.max_price;
+      where.price = price;
+    }
+
+    const catalog: Prisma.ProductCatalogWhereInput = {};
+    if (q.category_id) catalog.categoryId = q.category_id;
+    if (q.brand_id) catalog.brandId = q.brand_id;
+    if (q.year != null) catalog.year = q.year;
+    if (q.search) {
+      catalog.OR = [
+        { model: { contains: q.search, mode: 'insensitive' } },
+        { brand: { name: { contains: q.search, mode: 'insensitive' } } },
+      ];
+    }
+    if (Object.keys(catalog).length > 0) {
+      where.catalog = catalog;
+    }
+
+    return where;
+  }
+
+  /** Map the sort enum to a Prisma orderBy. */
+  private buildOrderBy(
+    sort: ProductSort,
+  ): Prisma.ProductOrderByWithRelationInput | Prisma.ProductOrderByWithRelationInput[] {
+    switch (sort) {
+      case ProductSort.OLDEST:
+        return { createdAt: 'asc' };
+      case ProductSort.PRICE_LOW:
+        return [{ price: 'asc' }, { createdAt: 'desc' }];
+      case ProductSort.PRICE_HIGH:
+      case ProductSort.TOP_PICKS:
+        // Premium-first heuristic until popularity/curation signals exist.
+        return [{ price: 'desc' }, { createdAt: 'desc' }];
+      case ProductSort.RECENT:
+      default:
+        return { createdAt: 'desc' };
+    }
   }
 
   private toSummary(item: ProductListRow) {

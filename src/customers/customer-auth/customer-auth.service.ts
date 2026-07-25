@@ -10,6 +10,7 @@ import { Role } from '../../common/enums/role.enum';
 import { normalizePhone } from '../../common/utils/phone.util';
 import { PrismaService } from '../../database/prisma.service';
 import { OtpService } from '../../otp/otp.service';
+import { SocialAuthService } from '../../auth/social/social-auth.service';
 import { RegisterCustomerDto } from './dto/register-customer.dto';
 
 export interface RequestOtpResult {
@@ -30,7 +31,25 @@ export class CustomerAuthService {
     private readonly prisma: PrismaService,
     private readonly otp: OtpService,
     private readonly tokens: TokenService,
+    private readonly social: SocialAuthService,
   ) {}
+
+  /**
+   * Google sign-in / signup via Supabase. Verifies the Supabase token, links or
+   * creates the customer account, and returns a session. New accounts have no
+   * phone yet — the checkout flow enforces phone verification (see
+   * PhoneVerifiedGuard), so signup stays frictionless.
+   */
+  async socialGoogle(
+    supabaseAccessToken: string,
+  ): Promise<{ status: 'authenticated'; tokens: AuthTokensDto; isNewUser: boolean }> {
+    const result = await this.social.authenticate(supabaseAccessToken);
+    return {
+      status: 'authenticated',
+      tokens: result.tokens,
+      isNewUser: result.isNewUser,
+    };
+  }
 
   async requestOtp(rawPhone: string): Promise<RequestOtpResult> {
     const phone = normalizePhone(rawPhone);
