@@ -569,6 +569,8 @@ model SubOrder {
   awbNumber          String?      @map("awb_number")
   packPhotoBeforeUrl String?      @map("pack_photo_before_url")
   packPhotoAfterUrl  String?      @map("pack_photo_after_url")
+  // Set once BOTH packing photos have been uploaded.
+  photosVerifiedAt      DateTime?         @map("photos_verified_at")
   deliveredAt        DateTime?    @map("delivered_at")
   cancelledAt        DateTime?    @map("cancelled_at")
   createdAt          DateTime     @default(now()) @map("created_at")

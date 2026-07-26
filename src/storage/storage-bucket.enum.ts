@@ -15,6 +15,8 @@ export enum StorageBucket {
   KYC_DOCUMENTS = 'kyc-documents',
   /** Vendor product media (listing images, etc.). */
   VENDOR_PRODUCTS = 'vendor-products',
+  /** Before/after packing photos for order fulfillment (fraud-checked). */
+  PACKING_PHOTOS = 'packing-photos',
   /** User/vendor profile avatars. */
   PROFILE_AVATARS = 'profile-avatars',
 }

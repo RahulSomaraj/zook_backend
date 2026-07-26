@@ -8,12 +8,27 @@ import { VendorsService } from './vendors.service';
 import { PhoneVerifyGuard } from './guards/phone-verify.guard';
 import { ListingsController } from './listings/listings.controller';
 import { ListingsService } from './listings/listings.service';
+import { VendorOrdersController } from './orders/vendor-orders.controller';
+import { VendorOrdersService } from './orders/vendor-orders.service';
 import { SettingsController } from './settings/settings.controller';
 import { SettingsService } from './settings/settings.service';
 
 @Module({
   imports: [AuthModule, OtpModule],
-  controllers: [VendorAuthController, VendorsController, ListingsController, SettingsController],
-  providers: [VendorAuthService, VendorsService, PhoneVerifyGuard, ListingsService, SettingsService],
+  controllers: [
+    VendorAuthController,
+    VendorsController,
+    ListingsController,
+    VendorOrdersController,
+    SettingsController,
+  ],
+  providers: [
+    VendorAuthService,
+    VendorsService,
+    PhoneVerifyGuard,
+    ListingsService,
+    VendorOrdersService,
+    SettingsService,
+  ],
 })
 export class VendorsModule {}
