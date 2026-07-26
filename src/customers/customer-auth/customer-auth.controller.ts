@@ -1,5 +1,6 @@
-import { Body, Controller, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
 import {
+  ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiOperation,
@@ -7,6 +8,9 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import type { AuthenticatedUser } from '../../auth/auth.types';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { AuthTokensDto } from '../../auth/dto/auth-tokens.dto';
 import { SocialLoginDto } from '../../auth/social/dto/social-login.dto';
 import { RegisterCustomerDto } from './dto/register-customer.dto';
@@ -62,6 +66,41 @@ export class CustomerAuthController {
   @ApiUnauthorizedResponse({ description: 'Invalid or expired code' })
   verifyOtp(@Body() dto: VerifyOtpDto): Promise<VerifyOtpResult> {
     return this.customerAuth.verifyOtp(dto.phone, dto.code);
+  }
+
+  @Post('phone/send')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Throttle({ default: { ttl: 60_000, limit: 3 } })
+  @ApiOperation({
+    summary:
+      'Send an OTP to attach/verify a phone on the CURRENT authenticated user (e.g. after Google signup, before checkout).',
+  })
+  @ApiConflictResponse({ description: 'Phone already linked to another account' })
+  requestPhoneAttach(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: RequestOtpDto,
+  ): Promise<RequestOtpResult> {
+    return this.customerAuth.requestPhoneAttachOtp(user.id, dto.phone);
+  }
+
+  @Post('phone/verify')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Throttle({ default: { ttl: 60_000, limit: 6 } })
+  @ApiOperation({
+    summary:
+      'Verify the attach OTP and set phone + phoneVerified on the current user. Never creates or switches accounts.',
+  })
+  @ApiUnauthorizedResponse({ description: 'Invalid or expired code' })
+  @ApiConflictResponse({ description: 'Phone already linked to another account' })
+  verifyPhoneAttach(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: VerifyOtpDto,
+  ): Promise<{ phone: string; phoneVerified: true }> {
+    return this.customerAuth.verifyPhoneAttach(user.id, dto.phone, dto.code);
   }
 
   @Post('social/google')

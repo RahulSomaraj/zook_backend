@@ -15,6 +15,8 @@ interface ErrorBody {
   message: string | string[];
   timestamp: string;
   path: string;
+  /** Present on 429s: seconds until the client may retry (drives resend timers). */
+  retryAfterSeconds?: number;
 }
 
 /**
@@ -34,6 +36,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | string[] = 'Internal server error';
     let error = 'InternalServerError';
+    let retryAfterSeconds: number | undefined;
 
     if (exception instanceof HttpException) {
       statusCode = exception.getStatus();
@@ -43,6 +46,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
       } else if (res && typeof res === 'object') {
         message = (res as any).message ?? exception.message;
         error = (res as any).error ?? exception.name;
+        // Preserve the rate-limit hint so clients can drive resend timers.
+        if (typeof (res as any).retryAfterSeconds === 'number') {
+          retryAfterSeconds = (res as any).retryAfterSeconds;
+        }
       }
     } else if (this.isPrismaKnownError(exception)) {
       ({ statusCode, message, error } = this.mapPrismaError(exception));
@@ -58,6 +65,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message,
       timestamp: new Date().toISOString(),
       path: request.url,
+      ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
     };
 
     if (statusCode >= 500) {

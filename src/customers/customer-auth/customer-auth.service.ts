@@ -51,6 +51,69 @@ export class CustomerAuthService {
     };
   }
 
+  /**
+   * Step 1 of attaching a phone to the CURRENT (authenticated) user — used by
+   * social-signup customers who have no phone yet (e.g. blocked at checkout by
+   * PhoneVerifiedGuard). Rejects phones already owned by another account
+   * before sending, so we never burn an SMS on a doomed attach.
+   */
+  async requestPhoneAttachOtp(
+    userId: string,
+    rawPhone: string,
+  ): Promise<RequestOtpResult> {
+    const phone = normalizePhone(rawPhone);
+    const owner = await this.prisma.user.findFirst({
+      where: { phone, NOT: { id: userId } },
+      select: { id: true },
+    });
+    if (owner) {
+      throw new ConflictException(
+        'This phone number is already linked to another account',
+      );
+    }
+    const issued = await this.otp.issue(phone, 'customer_auth');
+    return {
+      phone,
+      sent: true,
+      expiresInSeconds: issued.expiresInSeconds,
+      ...(issued.devCode ? { devCode: issued.devCode } : {}),
+    };
+  }
+
+  /**
+   * Step 2: verify the code and attach the phone to the current user
+   * (phoneVerified = true). Unlike otp/verify this NEVER creates or switches
+   * accounts — it only mutates the authenticated user.
+   */
+  async verifyPhoneAttach(
+    userId: string,
+    rawPhone: string,
+    code: string,
+  ): Promise<{ phone: string; phoneVerified: true }> {
+    const phone = normalizePhone(rawPhone);
+    const ok = await this.otp.verify(phone, code, 'customer_auth');
+    if (!ok) throw new UnauthorizedException('Invalid or expired code');
+
+    // Re-check ownership inside the write to close the race window.
+    await this.prisma.$transaction(async (tx) => {
+      const owner = await tx.user.findFirst({
+        where: { phone, NOT: { id: userId } },
+        select: { id: true },
+      });
+      if (owner) {
+        throw new ConflictException(
+          'This phone number is already linked to another account',
+        );
+      }
+      await tx.user.update({
+        where: { id: userId },
+        data: { phone, phoneVerified: true },
+      });
+    });
+
+    return { phone, phoneVerified: true };
+  }
+
   async requestOtp(rawPhone: string): Promise<RequestOtpResult> {
     const phone = normalizePhone(rawPhone);
     const issued = await this.otp.issue(phone, 'customer_auth');

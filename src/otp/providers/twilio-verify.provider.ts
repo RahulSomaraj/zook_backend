@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   Logger,
   OnModuleInit,
@@ -104,10 +105,25 @@ export class TwilioVerifyProvider implements OtpProvider, OnModuleInit {
 
   private mapAndThrowIssueError(err: unknown, purpose: string): never {
     const code = this.twilioCode(err);
-    // 60200 invalid parameter (bad number), 60033 invalid 'to' number.
-    if (code === 60200 || code === 60033) {
+    // 21608: trial accounts may only send to numbers verified in the Twilio
+    // console. Surfaced explicitly so testing isn't a mystery 503.
+    if (code === 21608) {
       throw new ServiceUnavailableException(
-        'Could not send a code to that number. Check the phone number and try again.',
+        'This number is not verified for the Twilio trial account. Verify it in the Twilio console or upgrade the account.',
+      );
+    }
+    // 60605 / 21408: destination country blocked by the account's
+    // SMS geo-permissions.
+    if (code === 60605 || code === 21408) {
+      throw new ServiceUnavailableException(
+        "SMS to this country is disabled by the Twilio account's geo-permissions. Enable the destination country in the console.",
+      );
+    }
+    // 60200 invalid parameter (bad number), 60033 invalid 'to' number —
+    // the caller's number is malformed, so this is a 400, not a 503.
+    if (code === 60200 || code === 60033) {
+      throw new BadRequestException(
+        'That phone number is not valid. Check the number (including country code) and try again.',
       );
     }
     // 60203 max send attempts reached, 60205 SMS not supported to landline,

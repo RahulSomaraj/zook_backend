@@ -65,4 +65,19 @@ describe('OtpService (provider routing)', () => {
     await svc.issue('0501234567', 'customer_auth');
     expect(twilio.issue).toHaveBeenCalledWith('+971501234567', 'customer_auth');
   });
+
+  it('rejects implausible numbers before any provider/limiter call (400)', async () => {
+    // An Indian mobile sent without '+91' — normalizePhone would mangle it
+    // into +9719656082258 (10 national digits, impossible for UAE).
+    await expect(svc.issue('9656082258', 'customer_auth')).rejects.toMatchObject(
+      { status: 400 },
+    );
+    expect(twilio.issue).not.toHaveBeenCalled();
+    expect(limiter.assertCanSend).not.toHaveBeenCalled();
+  });
+
+  it('accepts properly prefixed foreign numbers (+91…)', async () => {
+    await svc.issue('+919656082258', 'customer_auth');
+    expect(twilio.issue).toHaveBeenCalledWith('+919656082258', 'customer_auth');
+  });
 });
