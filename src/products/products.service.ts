@@ -106,7 +106,7 @@ export class ProductsService {
     });
 
     if (!item) {
-      throw new NotFoundException('Product not found');
+      throw new NotFoundException({ message: 'Product not found', code: 'PRODUCT_NOT_FOUND' });
     }
 
     return {

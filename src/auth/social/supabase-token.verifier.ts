@@ -92,7 +92,10 @@ export class SupabaseTokenVerifier {
           err instanceof Error ? err.message : 'unknown'
         }`,
       );
-      throw new UnauthorizedException('Invalid or expired social token.');
+      throw new UnauthorizedException({
+        message: 'Invalid or expired social token.',
+        code: 'SOCIAL_TOKEN_INVALID',
+      });
     }
 
     if (!payload.sub) {

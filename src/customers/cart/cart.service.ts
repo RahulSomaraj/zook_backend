@@ -57,7 +57,7 @@ export class CartService {
     });
 
     if (!item || item.cart.userId !== userId || !item.cart.isActive) {
-      throw new NotFoundException('Cart item not found');
+      throw new NotFoundException({ message: 'Cart item not found', code: 'CART_ITEM_NOT_FOUND' });
     }
 
     this.ensureProductActive(item.product.isActive);
@@ -78,7 +78,7 @@ export class CartService {
     });
 
     if (!item || item.cart.userId !== userId || !item.cart.isActive) {
-      throw new NotFoundException('Cart item not found');
+      throw new NotFoundException({ message: 'Cart item not found', code: 'CART_ITEM_NOT_FOUND' });
     }
 
     await this.prisma.cartItem.delete({ where: { id: itemId } });
@@ -150,7 +150,7 @@ export class CartService {
     });
 
     if (!product) {
-      throw new NotFoundException('Product not found');
+      throw new NotFoundException({ message: 'Product not found', code: 'PRODUCT_NOT_FOUND' });
     }
 
     this.ensureProductActive(product.isActive);
@@ -160,13 +160,13 @@ export class CartService {
 
   private ensureProductActive(isActive: boolean) {
     if (!isActive) {
-      throw new BadRequestException('Product is not available');
+      throw new BadRequestException({ message: 'Product is not available', code: 'PRODUCT_UNAVAILABLE' });
     }
   }
 
   private ensureStock(stockQty: number, quantity: number) {
     if (stockQty < quantity) {
-      throw new BadRequestException('Requested quantity exceeds available stock');
+      throw new BadRequestException({ message: 'Requested quantity exceeds available stock', code: 'INSUFFICIENT_STOCK' });
     }
   }
 

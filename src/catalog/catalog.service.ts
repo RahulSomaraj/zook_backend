@@ -52,7 +52,12 @@ export class CatalogService {
       where: { id, deletedAt: null },
       include: { brand: true, category: true },
     });
-    if (!item) throw new NotFoundException('Catalog item not found');
+    if (!item) {
+      throw new NotFoundException({
+        message: 'Catalog item not found',
+        code: 'PRODUCT_NOT_FOUND',
+      });
+    }
     return item;
   }
 

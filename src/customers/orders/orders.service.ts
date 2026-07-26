@@ -37,7 +37,7 @@ export class OrdersService {
     });
 
     if (!cart || cart.items.length === 0) {
-      throw new BadRequestException('Cart is empty');
+      throw new BadRequestException({ message: 'Cart is empty', code: 'CART_EMPTY' });
     }
 
     const mamoFeeRate = this.config.get<number>('payments.mamoFeeRate') ?? 0.029;
@@ -55,7 +55,7 @@ export class OrdersService {
       });
 
       if (latestProducts.length !== productIds.length) {
-        throw new NotFoundException('One or more cart products no longer exist');
+        throw new NotFoundException({ message: 'One or more cart products no longer exist', code: 'PRODUCT_NOT_FOUND' });
       }
 
       const productById = new Map(latestProducts.map((product) => [product.id, product]));
@@ -64,19 +64,21 @@ export class OrdersService {
       const preparedItems = cart.items.map((item) => {
         const product = productById.get(item.productId);
         if (!product) {
-          throw new NotFoundException(`Product ${item.productId} not found`);
+          throw new NotFoundException({ message: `Product ${item.productId} not found`, code: 'PRODUCT_NOT_FOUND' });
         }
 
         if (!product.isActive) {
-          throw new BadRequestException(
-            `Product "${product.catalog.brand.name} ${product.catalog.model}" is no longer available`,
-          );
+          throw new BadRequestException({
+            message: `Product "${product.catalog.brand.name} ${product.catalog.model}" is no longer available`,
+            code: 'PRODUCT_UNAVAILABLE',
+          });
         }
 
         if (product.stockQty < item.quantity) {
-          throw new BadRequestException(
-            `Only ${product.stockQty} unit(s) left for "${product.catalog.brand.name} ${product.catalog.model}"`,
-          );
+          throw new BadRequestException({
+            message: `Only ${product.stockQty} unit(s) left for "${product.catalog.brand.name} ${product.catalog.model}"`,
+            code: 'INSUFFICIENT_STOCK',
+          });
         }
 
         const salePrice = new Prisma.Decimal(product.price).mul(item.quantity);
@@ -240,7 +242,7 @@ export class OrdersService {
     });
 
     if (!order) {
-      throw new NotFoundException('Order not found');
+      throw new NotFoundException({ message: 'Order not found', code: 'ORDER_NOT_FOUND' });
     }
 
     return this.toOrderResponse({

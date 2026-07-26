@@ -50,9 +50,10 @@ export class SocialAuthService {
     if (!identity.email || !identity.emailVerified) {
       // Google always returns a verified email; anything else we won't trust
       // for account creation/linking.
-      throw new UnauthorizedException(
-        'A verified email is required for social sign-in.',
-      );
+      throw new UnauthorizedException({
+        message: 'A verified email is required for social sign-in.',
+        code: 'SOCIAL_EMAIL_UNVERIFIED',
+      });
     }
 
     const provider = this.mapProvider(identity.provider);

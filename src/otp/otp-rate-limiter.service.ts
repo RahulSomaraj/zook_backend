@@ -54,6 +54,7 @@ export class OtpRateLimiterService {
         throw this.tooMany(
           `Please wait ${cooldownTtl}s before requesting another code.`,
           cooldownTtl,
+          'OTP_RESEND_COOLDOWN',
         );
       }
 
@@ -67,6 +68,7 @@ export class OtpRateLimiterService {
         throw this.tooMany(
           'Daily verification limit reached for this number. Try again tomorrow.',
           retryAfter,
+          'OTP_DAILY_LIMIT',
         );
       }
     } catch (err) {
@@ -100,11 +102,16 @@ export class OtpRateLimiterService {
     return `otp:cnt:${purpose}:${phone}:${day}`;
   }
 
-  private tooMany(message: string, retryAfterSeconds: number): HttpException {
+  private tooMany(
+    message: string,
+    retryAfterSeconds: number,
+    code: string,
+  ): HttpException {
     return new HttpException(
       {
         statusCode: HttpStatus.TOO_MANY_REQUESTS,
         message,
+        code,
         retryAfterSeconds,
       },
       HttpStatus.TOO_MANY_REQUESTS,

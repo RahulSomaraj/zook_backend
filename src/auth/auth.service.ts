@@ -60,12 +60,12 @@ export class AuthService {
       userId = payload.sub;
       jti = payload.jti;
     } catch {
-      throw new UnauthorizedException('Invalid or expired refresh token');
+      throw new UnauthorizedException({ message: 'Invalid or expired refresh token', code: 'SESSION_EXPIRED' });
     }
 
     const valid = await this.tokens.isRefreshTokenValid(jti);
     if (!valid) {
-      throw new UnauthorizedException('Refresh token has been revoked');
+      throw new UnauthorizedException({ message: 'Refresh token has been revoked', code: 'SESSION_EXPIRED' });
     }
 
     // Revoke old token before issuing new pair (rotation).

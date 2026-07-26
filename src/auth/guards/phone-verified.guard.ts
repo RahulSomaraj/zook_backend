@@ -38,6 +38,7 @@ export class PhoneVerifiedGuard implements CanActivate {
       throw new ForbiddenException({
         message: 'Verify your phone number to continue.',
         error: 'PHONE_VERIFICATION_REQUIRED',
+        code: 'PHONE_VERIFICATION_REQUIRED',
       });
     }
     return true;

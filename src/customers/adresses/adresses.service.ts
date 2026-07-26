@@ -172,7 +172,7 @@ export class AdressesService {
     });
 
     if (!address) {
-      throw new NotFoundException('Address not found');
+      throw new NotFoundException({ message: 'Address not found', code: 'ADDRESS_NOT_FOUND' });
     }
 
     return address;

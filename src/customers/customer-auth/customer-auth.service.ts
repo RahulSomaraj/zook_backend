@@ -67,9 +67,10 @@ export class CustomerAuthService {
       select: { id: true },
     });
     if (owner) {
-      throw new ConflictException(
-        'This phone number is already linked to another account',
-      );
+      throw new ConflictException({
+        message: 'This phone number is already linked to another account',
+        code: 'PHONE_TAKEN',
+      });
     }
     const issued = await this.otp.issue(phone, 'customer_auth');
     return {
@@ -92,7 +93,12 @@ export class CustomerAuthService {
   ): Promise<{ phone: string; phoneVerified: true }> {
     const phone = normalizePhone(rawPhone);
     const ok = await this.otp.verify(phone, code, 'customer_auth');
-    if (!ok) throw new UnauthorizedException('Invalid or expired code');
+    if (!ok) {
+      throw new UnauthorizedException({
+        message: 'Invalid or expired code',
+        code: 'OTP_INVALID',
+      });
+    }
 
     // Re-check ownership inside the write to close the race window.
     await this.prisma.$transaction(async (tx) => {
@@ -101,9 +107,10 @@ export class CustomerAuthService {
         select: { id: true },
       });
       if (owner) {
-        throw new ConflictException(
-          'This phone number is already linked to another account',
-        );
+        throw new ConflictException({
+          message: 'This phone number is already linked to another account',
+          code: 'PHONE_TAKEN',
+        });
       }
       await tx.user.update({
         where: { id: userId },
@@ -128,7 +135,12 @@ export class CustomerAuthService {
   async verifyOtp(rawPhone: string, code: string): Promise<VerifyOtpResult> {
     const phone = normalizePhone(rawPhone);
     const ok = await this.otp.verify(phone, code, 'customer_auth');
-    if (!ok) throw new UnauthorizedException('Invalid or expired code');
+    if (!ok) {
+      throw new UnauthorizedException({
+        message: 'Invalid or expired code',
+        code: 'OTP_INVALID',
+      });
+    }
 
     const user = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.user.findFirst({
@@ -218,9 +230,10 @@ export class CustomerAuthService {
       select: { id: true },
     });
     if (clash) {
-      throw new ConflictException(
-        'An account with this email or phone already exists',
-      );
+      throw new ConflictException({
+        message: 'An account with this email or phone already exists',
+        code: 'ACCOUNT_EXISTS',
+      });
     }
 
     const user = await this.prisma.$transaction(async (tx) => {

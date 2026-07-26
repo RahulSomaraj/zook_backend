@@ -26,7 +26,12 @@ export class CountriesService {
       where: { iso2: iso2.trim().toUpperCase(), isActive: true, deletedAt: null },
       select: this.publicFields,
     });
-    if (!country) throw new NotFoundException('Country not found');
+    if (!country) {
+      throw new NotFoundException({
+        message: 'Country not found',
+        code: 'NOT_FOUND',
+      });
+    }
     return country;
   }
 

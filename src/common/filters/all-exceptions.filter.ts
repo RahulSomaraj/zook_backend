@@ -7,6 +7,10 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import {
+  langFromHeader,
+  resolveErrorMessage,
+} from '../i18n/error-messages';
 
 interface ErrorBody {
   success: false;
@@ -15,6 +19,8 @@ interface ErrorBody {
   message: string | string[];
   timestamp: string;
   path: string;
+  /** Stable machine code for known errors — clients branch on this, not wording. */
+  code?: string;
   /** Present on 429s: seconds until the client may retry (drives resend timers). */
   retryAfterSeconds?: number;
 }
@@ -36,6 +42,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | string[] = 'Internal server error';
     let error = 'InternalServerError';
+    let code: string | undefined;
     let retryAfterSeconds: number | undefined;
 
     if (exception instanceof HttpException) {
@@ -46,6 +53,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       } else if (res && typeof res === 'object') {
         message = (res as any).message ?? exception.message;
         error = (res as any).error ?? exception.name;
+        if (typeof (res as any).code === 'string') {
+          code = (res as any).code;
+        }
         // Preserve the rate-limit hint so clients can drive resend timers.
         if (typeof (res as any).retryAfterSeconds === 'number') {
           retryAfterSeconds = (res as any).retryAfterSeconds;
@@ -58,6 +68,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
       error = exception.name;
     }
 
+    // Localize known errors from the catalog based on Accept-Language.
+    // Unknown codes / uncataloged errors keep the thrown (English) message.
+    const lang = langFromHeader(request.headers['accept-language']);
+    const localized = resolveErrorMessage(code, lang);
+    if (localized) message = localized;
+
     const body: ErrorBody = {
       success: false,
       statusCode,
@@ -65,6 +81,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message,
       timestamp: new Date().toISOString(),
       path: request.url,
+      ...(code !== undefined ? { code } : {}),
       ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
     };
 

@@ -85,9 +85,11 @@ export class TwilioVerifyProvider implements OtpProvider, OnModuleInit {
       // Any other failure (network/5xx) — surface as a retryable 503 rather
       // than silently treating a Twilio outage as a wrong code.
       this.logger.error(`Twilio verify check failed: ${this.safeMessage(err)}`);
-      throw new ServiceUnavailableException(
-        'Verification service is temporarily unavailable. Please try again.',
-      );
+      throw new ServiceUnavailableException({
+        message:
+          'Verification service is temporarily unavailable. Please try again.',
+        code: 'OTP_SEND_FAILED',
+      });
     }
   }
 
@@ -122,9 +124,11 @@ export class TwilioVerifyProvider implements OtpProvider, OnModuleInit {
     // 60200 invalid parameter (bad number), 60033 invalid 'to' number —
     // the caller's number is malformed, so this is a 400, not a 503.
     if (code === 60200 || code === 60033) {
-      throw new BadRequestException(
-        'That phone number is not valid. Check the number (including country code) and try again.',
-      );
+      throw new BadRequestException({
+        message:
+          'That phone number is not valid. Check the number (including country code) and try again.',
+        code: 'PHONE_INVALID',
+      });
     }
     // 60203 max send attempts reached, 60205 SMS not supported to landline,
     // 20429 too many requests, or Fraud Guard blocks — treat as rate/abuse.
@@ -136,9 +140,11 @@ export class TwilioVerifyProvider implements OtpProvider, OnModuleInit {
     this.logger.error(
       `Twilio verify start failed (purpose=${purpose}): ${this.safeMessage(err)}`,
     );
-    throw new ServiceUnavailableException(
-      'Verification service is temporarily unavailable. Please try again.',
-    );
+    throw new ServiceUnavailableException({
+      message:
+        'Verification service is temporarily unavailable. Please try again.',
+      code: 'OTP_SEND_FAILED',
+    });
   }
 
   private twilioCode(err: unknown): number | undefined {

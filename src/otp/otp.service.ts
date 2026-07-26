@@ -39,9 +39,11 @@ export class OtpService {
     // foreign number sent without '+', which normalizePhone would otherwise
     // mangle into an invalid +971… string (Twilio error 60200).
     if (!isPlausiblePhone(phone)) {
-      throw new BadRequestException(
-        'Invalid phone number. UAE numbers need 9 digits starting with 5 (e.g. +9715…); other countries must include their country code with a +.',
-      );
+      throw new BadRequestException({
+        message:
+          'Invalid phone number. UAE numbers need 9 digits starting with 5 (e.g. +9715…); other countries must include their country code with a +.',
+        code: 'PHONE_INVALID',
+      });
     }
     // Abuse gate first — never spend a paid send on a throttled number.
     await this.rateLimiter.assertCanSend(phone, purpose);

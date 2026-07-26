@@ -39,7 +39,12 @@ export class WishlistService {
       where: { id: productId },
       select: { id: true },
     });
-    if (!product) throw new NotFoundException('Product not found');
+    if (!product) {
+      throw new NotFoundException({
+        message: 'Product not found',
+        code: 'PRODUCT_NOT_FOUND',
+      });
+    }
 
     await this.prisma.wishlistItem.upsert({
       where: { userId_productId: { userId, productId } },
