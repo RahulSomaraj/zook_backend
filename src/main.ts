@@ -42,8 +42,30 @@ function configureMiddleware(app: INestApplication): void {
   app.use(helmet({ contentSecurityPolicy: false }));
 
   // Cap request bodies to mitigate payload-based DoS.
-  app.use(json({ limit: '1mb' }));
-  app.use(urlencoded({ extended: true, limit: '1mb' }));
+  app.use(json({ limit: '5mb' }));
+  app.use(urlencoded({ extended: true, limit: '5mb' }));
+
+  app.use(stripEmptyQueryParams);
+}
+
+// Browsers and Swagger UI send `?sort=&category_id=` for untouched or cleared
+// optional filters. With the global ValidationPipe's `enableImplicitConversion`,
+// an empty string reaches a number field as `Number('') === 0` and a uuid/enum
+// field as `''`, so a blank filter 400s the whole request instead of being
+// ignored. Deleting empty-string query values here — before validation — makes
+// a blank filter mean "absent", uniformly across every endpoint, so defaults
+// and `IsOptional` apply naturally. Genuinely unknown keys are still rejected
+// by `forbidNonWhitelisted`.
+function stripEmptyQueryParams(
+  req: { query: Record<string, unknown> },
+  _res: unknown,
+  next: () => void,
+): void {
+  const q = req.query;
+  for (const key of Object.keys(q)) {
+    if (q[key] === '') delete q[key];
+  }
+  next();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,15 +1,16 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
-import { EmptyToUndefined } from './empty-to-undefined.decorator';
 
 export class PaginationQueryDto {
   // `type: Number` is explicit because the Swagger CLI plugin is not enabled;
   // without it the generated spec types this as `Object`, and Swagger UI then
   // renders a JSON box instead of a number field and sends a malformed value.
+  // Empty-string query values are stripped globally before validation (see
+  // stripEmptyQueryParams in main.ts), so a blank field falls back to the
+  // default below rather than coercing to 0.
   @ApiPropertyOptional({ type: Number, default: 1, minimum: 1 })
   @IsOptional()
-  @EmptyToUndefined()
   @Type(() => Number)
   @IsInt()
   @Min(1)
@@ -17,7 +18,6 @@ export class PaginationQueryDto {
 
   @ApiPropertyOptional({ type: Number, default: 20, minimum: 1, maximum: 100 })
   @IsOptional()
-  @EmptyToUndefined()
   @Type(() => Number)
   @IsInt()
   @Min(1)
