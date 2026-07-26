@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { ConditionGrade, ProductSource } from '@prisma/client';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+import { EmptyToUndefined } from '../../common/dto/empty-to-undefined.decorator';
 
 /** Supported sort orders for the buyer product list. */
 export enum ProductSort {
@@ -39,26 +40,31 @@ export class QueryProductsDto extends PaginationQueryDto {
     description: 'Sort order. Defaults to newest first.',
   })
   @IsOptional()
+  @EmptyToUndefined()
   @IsEnum(ProductSort)
   sort: ProductSort = ProductSort.RECENT;
 
   @ApiPropertyOptional({ description: 'Filter by category id (uuid).' })
   @IsOptional()
+  @EmptyToUndefined()
   @IsUUID()
   category_id?: string;
 
   @ApiPropertyOptional({ description: 'Filter by country ISO2 code, e.g. AE.' })
   @IsOptional()
+  @EmptyToUndefined()
   @IsString()
   country?: string;
 
   @ApiPropertyOptional({ description: 'Filter by brand id (uuid).' })
   @IsOptional()
+  @EmptyToUndefined()
   @IsUUID()
   brand_id?: string;
 
   @ApiPropertyOptional({ description: 'Filter by vendor id (uuid).' })
   @IsOptional()
+  @EmptyToUndefined()
   @IsUUID()
   vendor_id?: string;
 
@@ -67,6 +73,7 @@ export class QueryProductsDto extends PaginationQueryDto {
     description: 'Filter by source: vendor or c2c.',
   })
   @IsOptional()
+  @EmptyToUndefined()
   @IsEnum(ProductSource)
   source?: ProductSource;
 
@@ -75,21 +82,25 @@ export class QueryProductsDto extends PaginationQueryDto {
     description: 'Filter by condition grade.',
   })
   @IsOptional()
+  @EmptyToUndefined()
   @IsEnum(ConditionGrade)
   condition?: ConditionGrade;
 
   @ApiPropertyOptional({ description: 'Filter by storage variant, e.g. 256GB.' })
   @IsOptional()
+  @EmptyToUndefined()
   @IsString()
   storage?: string;
 
   @ApiPropertyOptional({ description: 'Filter by color.' })
   @IsOptional()
+  @EmptyToUndefined()
   @IsString()
   color?: string;
 
   @ApiPropertyOptional({ description: 'Filter by catalog year.' })
   @IsOptional()
+  @EmptyToUndefined()
   @Type(() => Number)
   @IsInt()
   @Min(1980)
@@ -98,6 +109,7 @@ export class QueryProductsDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({ minimum: 0, description: 'Minimum price (inclusive).' })
   @IsOptional()
+  @EmptyToUndefined()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
@@ -105,6 +117,7 @@ export class QueryProductsDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({ minimum: 0, description: 'Maximum price (inclusive).' })
   @IsOptional()
+  @EmptyToUndefined()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
@@ -114,6 +127,7 @@ export class QueryProductsDto extends PaginationQueryDto {
     description: 'Free-text search across brand name and model.',
   })
   @IsOptional()
+  @EmptyToUndefined()
   @IsString()
   search?: string;
 }
