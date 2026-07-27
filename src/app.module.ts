@@ -25,6 +25,7 @@ import { OrdersModule } from './customers/orders/orders.module';
 import { AdressesModule } from './customers/adresses/adresses.module';
 import { WishlistModule } from './customers/wishlist/wishlist.module';
 import { CountriesModule } from './countries/countries.module';
+import { CustomerSettingsModule } from './customers/settings/customer-settings.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { CountriesModule } from './countries/countries.module';
     AdressesModule,
     WishlistModule,
     CountriesModule,
+    CustomerSettingsModule,
   ],
   controllers: [AppController],
   providers: [

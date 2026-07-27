@@ -138,6 +138,8 @@ model User {
   phoneVerified Boolean  @default(false) @map("phone_verified")
   // Whether the user accepted the terms of service & privacy policy at signup.
   termsAccepted Boolean  @default(false) @map("terms_accepted")
+  // Preferred app display language (customer app). Mirrors Vendor.language.
+  language      String?  @default("en")
   createdAt     DateTime @default(now()) @map("created_at")
 
   // A person can hold several roles at once (e.g. customer + vendor); the grant
