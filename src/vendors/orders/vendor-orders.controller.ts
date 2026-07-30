@@ -66,7 +66,7 @@ export class VendorOrdersController {
   @Post(':id/pack-photos')
   @ApiOperation({
     summary:
-      'Attach a before/after packing photo. Order must be preparing.',
+      'Attach before and/or after packing photo(s) in one call. Order must be preparing.',
   })
   attachPackPhoto(
     @CurrentUser() user: AuthenticatedUser,

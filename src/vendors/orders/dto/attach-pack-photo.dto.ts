@@ -1,34 +1,36 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsIn, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
-/** Which of the two required packing photos is being attached. */
-export type PackPhotoType = 'before' | 'after';
+const trimKey = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim() : value;
 
 /**
- * Attach a packing photo to a sub-order. The client first uploads the image via
- * `POST /storage/uploads/sign` (bucket `packing-photos`), then sends the
- * returned storage `key` here as `objectKey`. The server records it and runs
- * the fraud/content check.
+ * Attach packing photos to a sub-order in a single call. The client first
+ * uploads each image via `POST /storage/uploads/sign` (bucket `packing-photos`)
+ * and sends the returned storage keys here. Provide `beforeKey`, `afterKey`, or
+ * BOTH — at least one is required.
  */
 export class AttachPackPhotoDto {
-  @ApiProperty({
-    enum: ['before', 'after'],
-    description: 'Which packing photo this is: before or after packing.',
+  @ApiPropertyOptional({
+    description: 'Storage key of the BEFORE-packing photo.',
+    example: '9f0f8349-.../before-packing.jpg',
   })
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim().toLowerCase() : value,
-  )
-  @IsIn(['before', 'after'])
-  type!: PackPhotoType;
-
-  @ApiProperty({
-    description: 'Storage object key returned by the signed-upload endpoint.',
-    example: '9f0f8349-.../before-packing-1783697149762.jpg',
-  })
+  @IsOptional()
   @IsString()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(trimKey)
   @MinLength(1)
   @MaxLength(500)
-  objectKey!: string;
+  beforeKey?: string;
+
+  @ApiPropertyOptional({
+    description: 'Storage key of the AFTER-packing photo.',
+    example: '9f0f8349-.../after-packing.jpg',
+  })
+  @IsOptional()
+  @IsString()
+  @Transform(trimKey)
+  @MinLength(1)
+  @MaxLength(500)
+  afterKey?: string;
 }

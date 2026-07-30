@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -175,19 +176,26 @@ export class VendorOrdersService {
       );
     }
 
-    // Merge the incoming photo with whatever is already stored, so we can tell
-    // whether BOTH photos now exist.
-    const beforeUrl =
-      dto.type === 'before' ? dto.objectKey : subOrder.packPhotoBeforeUrl;
-    const afterUrl =
-      dto.type === 'after' ? dto.objectKey : subOrder.packPhotoAfterUrl;
-    const bothUploaded = !!beforeUrl && !!afterUrl;
+    // At least one photo key must be supplied. Both may be sent in one call.
+    if (!dto.beforeKey && !dto.afterKey) {
+      throw new BadRequestException(
+        'Provide at least one of beforeKey or afterKey',
+      );
+    }
 
-    const data: Prisma.SubOrderUpdateInput =
-      dto.type === 'before'
-        ? { packPhotoBeforeUrl: dto.objectKey }
-        : { packPhotoAfterUrl: dto.objectKey };
+    // Apply whichever keys were sent, keeping any already-stored photo.
+    const data: Prisma.SubOrderUpdateInput = {};
+    if (dto.beforeKey) data.packPhotoBeforeUrl = dto.beforeKey;
+    if (dto.afterKey) data.packPhotoAfterUrl = dto.afterKey;
+
+    const beforeUrl = dto.beforeKey ?? subOrder.packPhotoBeforeUrl;
+    const afterUrl = dto.afterKey ?? subOrder.packPhotoAfterUrl;
+    const bothUploaded = !!beforeUrl && !!afterUrl;
     data.photosVerifiedAt = bothUploaded ? new Date() : null;
+
+    const uploaded = [dto.beforeKey && 'before', dto.afterKey && 'after']
+      .filter(Boolean)
+      .join(' + ');
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const u = await tx.subOrder.update({
@@ -199,7 +207,7 @@ export class VendorOrdersService {
           subOrderId,
           status: OrderStatus.preparing,
           actorId: userId,
-          note: `${dto.type}-packing photo uploaded`,
+          note: `${uploaded} packing photo(s) uploaded`,
         },
       });
       return u;
