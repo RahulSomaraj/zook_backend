@@ -666,17 +666,25 @@ enum DevicePlatform {
 
 // A policy document (single content body). Soft-deleted (deletedAt) with audit
 // columns tracking which user created/updated/deleted the row.
-model Policy {
-  id        String    @id @default(uuid()) @db.Uuid
-  body      String // the policy text
-  isActive  Boolean   @default(true) @map("is_active")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-  createdBy String?   @map("created_by") @db.Uuid
-  updatedBy String?   @map("updated_by") @db.Uuid
-  deletedBy String?   @map("deleted_by") @db.Uuid
+// Which legal document a policy row holds.
+enum PolicyType {
+  terms_and_conditions
+  privacy_policy
+}
 
+model Policy {
+  id        String     @id @default(uuid()) @db.Uuid
+  type      PolicyType
+  body      String // the policy text
+  isActive  Boolean    @default(true) @map("is_active")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  deletedAt DateTime?  @map("deleted_at")
+  createdBy String?    @map("created_by") @db.Uuid
+  updatedBy String?    @map("updated_by") @db.Uuid
+  deletedBy String?    @map("deleted_by") @db.Uuid
+
+  @@index([type])
   @@index([isActive])
   @@index([deletedAt])
   @@map("policies")

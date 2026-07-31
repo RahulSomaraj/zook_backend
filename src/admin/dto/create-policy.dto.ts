@@ -1,9 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PolicyType } from '@prisma/client';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
 
 /** Admin-creates a policy. `createdBy` is taken from the auth token, not the body. */
 export class CreatePolicyDto {
+  @ApiProperty({
+    enum: PolicyType,
+    description: 'Which document this is: terms_and_conditions or privacy_policy.',
+  })
+  @IsEnum(PolicyType)
+  type!: PolicyType;
+
   @ApiProperty({ description: 'The policy text.' })
   @IsString()
   @Transform(({ value }: { value: unknown }) =>

@@ -22,6 +22,7 @@ export class AdminPoliciesService {
   async list(query: ListPolicyQueryDto) {
     const where: Prisma.PolicyWhereInput = {};
     if (!query.includeDeleted) where.deletedAt = null;
+    if (query.type) where.type = query.type;
     if (query.isActive !== undefined) where.isActive = query.isActive;
 
     const [total, items] = await this.prisma.$transaction([
@@ -46,6 +47,7 @@ export class AdminPoliciesService {
   async create(userId: string, dto: CreatePolicyDto) {
     return this.prisma.policy.create({
       data: {
+        type: dto.type,
         body: dto.body,
         isActive: dto.isActive ?? true,
         createdBy: userId,
@@ -58,6 +60,7 @@ export class AdminPoliciesService {
     return this.prisma.policy.update({
       where: { id },
       data: {
+        type: dto.type,
         body: dto.body,
         isActive: dto.isActive,
         updatedBy: userId,
