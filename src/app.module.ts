@@ -25,7 +25,9 @@ import { OrdersModule } from './customers/orders/orders.module';
 import { AdressesModule } from './customers/adresses/adresses.module';
 import { WishlistModule } from './customers/wishlist/wishlist.module';
 import { CountriesModule } from './countries/countries.module';
+import { PoliciesModule } from './policies/policies.module';
 import { CustomerSettingsModule } from './customers/settings/customer-settings.module';
+import { CategorySpecificationsModule } from './category_specifications/category_specifications.module';
 
 @Module({
   imports: [
@@ -71,7 +73,9 @@ import { CustomerSettingsModule } from './customers/settings/customer-settings.m
     AdressesModule,
     WishlistModule,
     CountriesModule,
+    PoliciesModule,
     CustomerSettingsModule,
+    CategorySpecificationsModule,
   ],
   controllers: [AppController],
   providers: [

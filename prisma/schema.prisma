@@ -152,15 +152,15 @@ model User {
   identities    AuthIdentity[]
   refreshTokens RefreshToken[]
   // Push notification device tokens (FCM) for this user's installs.
-  deviceTokens DeviceToken[]
+  deviceTokens  DeviceToken[]
   // Customer shopping carts owned by this user (typically one active cart).
-  carts Cart[]
+  carts         Cart[]
   // Products this user has wishlisted.
   wishlistItems WishlistItem[]
   // Saved delivery addresses for customer checkout.
-  addresses CustomerAddress[]
+  addresses     CustomerAddress[]
   // KYC records this user reviewed in their admin capacity.
-  reviewedKyc VendorKyc[] @relation("KycReviewer")
+  reviewedKyc   VendorKyc[]       @relation("KycReviewer")
 
   @@map("users")
 }
@@ -329,7 +329,8 @@ model Category {
   createdAt DateTime  @default(now()) @map("created_at")
   deletedAt DateTime? @map("deleted_at")
 
-  catalog ProductCatalog[]
+  catalog                ProductCatalog[]
+  categorySpecifications CategorySpecification[]
 
   @@index([isActive])
   @@index([deletedAt])
@@ -405,16 +406,28 @@ model ProductCatalog {
 model ProductSpecification {
   id        String   @id @default(uuid()) @db.Uuid
   catalogId String   @map("catalog_id") @db.Uuid
+  // The field being answered, from the catalog entry's category. Nullable so
+  // the older free-text rows (written before category specs existed) still
+  // load; new rows always set it.
+  specId    String?  @map("category_specification_id") @db.Uuid
+  // Frozen copy of the definition's label at write time, so a rendered spec
+  // sheet survives the definition being renamed or archived.
   label     String // attribute name, e.g. "Chipset"
   value     String // attribute value, e.g. "A16 Bionic"
   group     String? // optional section, e.g. "Display"
   sortOrder Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  catalog ProductCatalog @relation(fields: [catalogId], references: [id], onDelete: Cascade)
+  catalog ProductCatalog         @relation(fields: [catalogId], references: [id], onDelete: Cascade)
+  spec    CategorySpecification? @relation(fields: [specId], references: [id])
 
+  // One value per definition per catalog entry. Postgres treats NULLs as
+  // distinct, so this does not restrict the legacy rows with a null specId.
+  @@unique([catalogId, specId], map: "product_specifications_catalog_spec_key")
   @@unique([catalogId, label])
   @@index([catalogId])
+  @@index([specId])
   @@map("product_specifications")
 }
 
@@ -502,27 +515,27 @@ model WishlistItem {
 }
 
 model CustomerAddress {
-  id         String   @id @default(uuid()) @db.Uuid
-  userId     String   @map("user_id") @db.Uuid
-  fullName   String   @map("full_name")
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  fullName   String    @map("full_name")
   phone      String
-  label      String?  // e.g. Home, Work
+  label      String? // e.g. Home, Work
   line1      String
   line2      String?
   city       String
   state      String?
   country    String
-  postalCode String?  @map("postal_code")
+  postalCode String?   @map("postal_code")
   landmark   String?
   latitude   Float?
   longitude  Float?
-  isActive   Boolean  @default(true) @map("is_active")
-  isDefault  Boolean  @default(false) @map("is_default")
-  createdBy  String?  @map("created_by") @db.Uuid
-  updatedBy  String?  @map("updated_by") @db.Uuid
-  deletedBy  String?  @map("deleted_by") @db.Uuid
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  isActive   Boolean   @default(true) @map("is_active")
+  isDefault  Boolean   @default(false) @map("is_default")
+  createdBy  String?   @map("created_by") @db.Uuid
+  updatedBy  String?   @map("updated_by") @db.Uuid
+  deletedBy  String?   @map("deleted_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
 
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -572,7 +585,7 @@ model SubOrder {
   packPhotoBeforeUrl String?      @map("pack_photo_before_url")
   packPhotoAfterUrl  String?      @map("pack_photo_after_url")
   // Set once BOTH packing photos have been uploaded.
-  photosVerifiedAt      DateTime?         @map("photos_verified_at")
+  photosVerifiedAt   DateTime?    @map("photos_verified_at")
   deliveredAt        DateTime?    @map("delivered_at")
   cancelledAt        DateTime?    @map("cancelled_at")
   createdAt          DateTime     @default(now()) @map("created_at")
@@ -688,4 +701,31 @@ model Policy {
   @@index([isActive])
   @@index([deletedAt])
   @@map("policies")
+}
+
+// Spec definitions for a category — the attribute labels every catalog entry
+// in that category fills in (e.g. Smartphones → Chipset, Display, Battery).
+// Admin-managed; the values live in ProductSpecification. Soft-deleted, with
+// audit columns tracking which user created/updated/deleted the row.
+model CategorySpecification {
+  id         String    @id @default(uuid()) @db.Uuid
+  categoryId String    @map("category_id") @db.Uuid
+  label      String // attribute name, e.g. "Chipset"
+  sortOrder  Int       @default(0) @map("sort_order")
+  isActive   Boolean   @default(true) @map("is_active")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+  createdBy  String?   @map("created_by") @db.Uuid
+  updatedBy  String?   @map("updated_by") @db.Uuid
+  deletedBy  String?   @map("deleted_by") @db.Uuid
+
+  category Category               @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  values   ProductSpecification[]
+
+  @@unique([categoryId, label]) // one definition per attribute per category
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("category_specifications")
 }

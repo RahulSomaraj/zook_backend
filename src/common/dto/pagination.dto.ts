@@ -1,4 +1,4 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
 
@@ -42,4 +42,19 @@ export function buildMeta(
   limit: number,
 ): PaginationMeta {
   return { page, limit, total, totalPages: Math.ceil(total / limit) || 1 };
+}
+
+/** Swagger-documented view of {@link PaginationMeta}, for `@ApiResponse` types. */
+export class PaginationMetaDto implements PaginationMeta {
+  @ApiProperty({ example: 1 })
+  page: number;
+
+  @ApiProperty({ example: 20 })
+  limit: number;
+
+  @ApiProperty({ example: 42 })
+  total: number;
+
+  @ApiProperty({ example: 3 })
+  totalPages: number;
 }
