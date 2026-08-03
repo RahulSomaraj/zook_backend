@@ -50,4 +50,12 @@ export class CreateListingDto {
   @IsInt()
   @Min(0)
   stockQty: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Courier pickup / store address. When provided, updates the vendor profile.',
+  })
+  @IsOptional()
+  @IsString()
+  storeAddress?: string;
 }

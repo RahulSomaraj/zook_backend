@@ -41,6 +41,15 @@ export class ListingsService {
     },
   });
 
+  // If a store address was supplied, persist it onto the vendor profile
+  // (the address lives on the vendor, shared across listings).
+  if (dto.storeAddress !== undefined) {
+    await this.prisma.vendor.update({
+      where: { id: vendorId },
+      data: { storeAddress: dto.storeAddress },
+    });
+  }
+
   const pickupAddress = await this.getPickupAddress(userId);
 
   return { ...product, pickupAddress };
