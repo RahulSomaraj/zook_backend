@@ -297,48 +297,65 @@ export class VendorOrdersService {
     };
   }
 
+  async readyforpickup(userId: string, subOrderId: string) {
+    const vendorId = await this.getVendorId(userId);
+    const subOrder = await this.prisma.subOrder.findFirst({
+      where: { id: subOrderId, vendorId },
+      select: {
+        status: true,
+        photosVerifiedAt: true,
+        packPhotoBeforeUrl: true,
+        packPhotoAfterUrl: true,
+      },
+    });
 
-  async readyforpickup(userId: string, subOrderId: string)
-  {
-      const vendorId = await this.getVendorId(userId);
-      const subOrder=await this.prisma.subOrder.findFirst({
-        where:{id: subOrderId, vendorId},
-        select:{status: true, photosVerifiedAt: true,packPhotoBeforeUrl:true,packPhotoAfterUrl:true}
+    if (!subOrder) {
+      throw new NotFoundException('Sub-order not found');
+    }
+
+    if (subOrder.status !== OrderStatus.preparing) {
+      throw new ConflictException(
+        `Cannot mark ready while order is "${subOrder.status}"`,
+      );
+    }
+
+    if (!subOrder.packPhotoBeforeUrl || !subOrder.packPhotoAfterUrl) {
+      throw new ConflictException(
+        'Upload both packing photos before marking ready for pickup',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const res = await tx.subOrder.updateMany({
+        where: { id: subOrderId, vendorId, status: OrderStatus.preparing },
+        data: { status: OrderStatus.ready },
       });
 
-      if(!subOrder)
-      {
-        throw new NotFoundException('Sub-order not found');
+      if (res.count !== 1) {
+        throw new ConflictException('Order is no longer ready to transition');
       }
 
-      if(subOrder.status!==OrderStatus.preparing)
-      {
-        throw new ConflictException(`Cannot mark ready while order is "${subOrder.status}"`)
-      }
-
-      if(!subOrder.packPhotoBeforeUrl || !subOrder.packPhotoAfterUrl){
-         throw new ConflictException('Upload both packing photos before marking ready for pickup',);
-      }
-
-      return this.prisma.$transaction(async(tx)=>{
-        const res=await tx.subOrder.updateMany({
-          where: { id: subOrderId, vendorId, status: OrderStatus.preparing },
-          data: { status: OrderStatus.ready },
-        })
-
-        if (res.count !== 1) {
-          throw new ConflictException('Order is no longer ready to transition');
-        }
-
-        await tx.subOrderStatusHistory.create({
-          data: {
-            subOrderId,
-            status: OrderStatus.ready,
-            actorId: userId,
-            note: 'Marked ready for pickup',
-          },
-        })
-        return tx.subOrder.findUniqueOrThrow({ where: { id: subOrderId } });
+      await tx.subOrderStatusHistory.create({
+        data: {
+          subOrderId,
+          status: OrderStatus.ready,
+          actorId: userId,
+          note: 'Marked ready for pickup',
+        },
       });
+      return tx.subOrder.findUniqueOrThrow({ where: { id: subOrderId } });
+    });
+  }
+
+  /** The vendor's 5 most recent sub-orders, shaped for the dashboard. */
+  async recentOrders(userId: string) {
+    const vendorId = await this.getVendorId(userId);
+    const rows = await this.prisma.subOrder.findMany({
+      where: { vendorId },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      include: VendorOrdersService.listInclude,
+    });
+    return rows.map((row) => this.toListItem(row));
   }
 }

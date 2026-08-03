@@ -39,6 +39,14 @@ export class VendorOrdersController {
     return this.orders.findAll(user.id, query);
   }
 
+  @Get('recent')
+  @ApiOperation({
+    summary: "The vendor's most recent sub-orders (default 5)",
+  })
+  recentOrders(@CurrentUser() user: AuthenticatedUser) {
+    return this.orders.recentOrders(user.id);
+  }
+
   @Post(':id/start-packing')
   @ApiOperation({
     summary:
@@ -81,8 +89,10 @@ export class VendorOrdersController {
     summary:
       'Mark a packed sub-order ready for courier pickup (preparing → ready). Requires both photos.',
   })
-  readyForPickup(@CurrentUser() user:AuthenticatedUser,
-    @Param('id', ParseUUIDPipe) id: string) {
-    return this.orders.readyforpickup(user.id,id);
+  readyForPickup(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.orders.readyforpickup(user.id, id);
   }
 }
