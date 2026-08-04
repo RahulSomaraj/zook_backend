@@ -16,6 +16,8 @@ export interface RequestOtpResult {
   phone: string;
   sent: true;
   expiresInSeconds: number;
+  isPhoneVerified: boolean;
+  isEmailVerified: boolean;
   devCode?: string;
 }
 
@@ -45,10 +47,17 @@ export class VendorAuthService {
   async requestOtp(rawPhone: string): Promise<RequestOtpResult> {
     const phone = normalizePhone(rawPhone);
     const issued = await this.otp.issue(phone);
+    // Reflect the account's current verification state (false if no account yet).
+    const user = await this.prisma.user.findFirst({
+      where: { phone },
+      select: { phoneVerified: true, emailVerified: true },
+    });
     return {
       phone,
       sent: true,
       expiresInSeconds: issued.expiresInSeconds,
+      isPhoneVerified: user?.phoneVerified ?? false,
+      isEmailVerified: user?.emailVerified ?? false,
       ...(issued.devCode ? { devCode: issued.devCode } : {}),
     };
   }

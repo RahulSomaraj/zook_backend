@@ -85,6 +85,8 @@ export class VendorsService {
       kyc: latestKyc
         ? { status: latestKyc.status, submittedAt: latestKyc.createdAt }
         : null,
+      tradeLicenseExpiry: latestKyc?.tradeLicenseExpiry ?? null,
+      emiratesIdExpiry: latestKyc?.emiratesIdExpiry ?? null,
     };
   }
 

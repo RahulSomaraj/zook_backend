@@ -280,6 +280,8 @@ model VendorKyc {
   tradeLicenseExpiry DateTime? @map("trade_license_expiry") @db.Date
   emiratesIdFrontUrl String    @map("emirates_id_front_url") // private bucket
   emiratesIdBackUrl  String    @map("emirates_id_back_url") // private bucket
+  emiratesIdNumber String?     @map("emirates_id_number")
+  emiratesIdExpiry DateTime?   @map("emirates_id_expiry") @db.Date
   status             KycStatus @default(pending)
   reviewedBy         String?   @map("reviewed_by") @db.Uuid // admin user id
   rejectionReason    String?   @map("rejection_reason")
