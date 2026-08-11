@@ -4,8 +4,9 @@ import { OtpRateLimiterService } from './otp-rate-limiter.service';
 import { LocalOtpProvider } from './providers/local-otp.provider';
 import { TwilioVerifyProvider } from './providers/twilio-verify.provider';
 
-function makeConfig(): ConfigService {
+function makeConfig(testMode = false): ConfigService {
   const values: Record<string, unknown> = {
+    'otp.testMode': testMode,
     'otp.customerProvider': 'twilio_verify',
     'otp.vendorProvider': 'local',
   };
@@ -41,6 +42,30 @@ describe('OtpService (provider routing)', () => {
   it('routes vendor_auth (default) to the local provider', async () => {
     await svc.issue('0501234567');
     expect(local.issue).toHaveBeenCalled();
+    expect(twilio.issue).not.toHaveBeenCalled();
+  });
+
+  it('routes every audience locally in OTP test mode', async () => {
+    svc = new OtpService(
+      local as unknown as LocalOtpProvider,
+      twilio as unknown as TwilioVerifyProvider,
+      limiter as unknown as OtpRateLimiterService,
+      makeConfig(true),
+    );
+
+    await svc.issue('+919656082258', 'customer_auth');
+    await svc.issue('+15551234567', 'vendor_auth');
+
+    expect(local.issue).toHaveBeenNthCalledWith(
+      1,
+      '+919656082258',
+      'customer_auth',
+    );
+    expect(local.issue).toHaveBeenNthCalledWith(
+      2,
+      '+15551234567',
+      'vendor_auth',
+    );
     expect(twilio.issue).not.toHaveBeenCalled();
   });
 

@@ -79,6 +79,10 @@ export default () => ({
     url: process.env.REDIS_URL ?? '',
   },
   otp: {
+    // Development/test-only switch: route every OTP audience through the local
+    // provider so arbitrary valid phone numbers can exercise signup/login
+    // without relying on Twilio's verified-recipient restrictions.
+    testMode: process.env.OTP_TEST_MODE === 'true',
     // Local (self-managed) code lifetime, in seconds. Only used by the local
     // provider; the Twilio Verify provider owns its own TTL server-side.
     ttlSeconds: parseInt(process.env.OTP_TTL_SECONDS ?? '300', 10),

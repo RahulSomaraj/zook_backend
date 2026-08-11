@@ -18,6 +18,7 @@ export type { IssuedOtp } from './providers/otp-provider.interface';
 @Injectable()
 export class OtpService {
   private readonly logger = new Logger(OtpService.name);
+  private readonly testMode: boolean;
   private readonly customerProviderName: string;
   private readonly vendorProviderName: string;
 
@@ -27,6 +28,7 @@ export class OtpService {
     private readonly rateLimiter: OtpRateLimiterService,
     config: ConfigService,
   ) {
+    this.testMode = config.get<boolean>('otp.testMode') ?? false;
     this.customerProviderName =
       config.get<string>('otp.customerProvider') ?? 'twilio_verify';
     this.vendorProviderName =
@@ -67,6 +69,8 @@ export class OtpService {
 
   /** Map a purpose to its configured provider. Vendor is the safe default. */
   private providerFor(purpose: string): OtpProvider {
+    if (this.testMode) return this.local;
+
     const name =
       purpose === 'customer_auth'
         ? this.customerProviderName

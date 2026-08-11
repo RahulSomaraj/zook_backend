@@ -58,6 +58,13 @@ export const envValidationSchema = Joi.object({
   REDIS_URL: Joi.string().uri({ scheme: ['redis', 'rediss'] }).allow('').optional(),
 
   // OTP delivery provider selection per audience.
+  // Test mode is intentionally forbidden in production because the local
+  // provider returns the OTP in the API response outside production.
+  OTP_TEST_MODE: Joi.boolean().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.valid(false).default(false),
+    otherwise: Joi.boolean().default(false),
+  }),
   OTP_CUSTOMER_PROVIDER: Joi.string()
     .valid('twilio_verify', 'local')
     .default('twilio_verify'),
@@ -71,36 +78,48 @@ export const envValidationSchema = Joi.object({
   // Twilio — each credential is required when EITHER audience uses
   // 'twilio_verify'. Two chained .when()s give the logical OR: if either
   // provider is Twilio, the value must be a non-empty string.
-  TWILIO_ACCOUNT_SID: Joi.string()
-    .allow('')
-    .when('OTP_CUSTOMER_PROVIDER', {
-      is: 'twilio_verify',
-      then: Joi.string().pattern(/^AC[0-9a-fA-F]{32}$/).required(),
-    })
-    .when('OTP_VENDOR_PROVIDER', {
-      is: 'twilio_verify',
-      then: Joi.string().pattern(/^AC[0-9a-fA-F]{32}$/).required(),
-    }),
-  TWILIO_AUTH_TOKEN: Joi.string()
-    .allow('')
-    .when('OTP_CUSTOMER_PROVIDER', {
-      is: 'twilio_verify',
-      then: Joi.string().min(1).required(),
-    })
-    .when('OTP_VENDOR_PROVIDER', {
-      is: 'twilio_verify',
-      then: Joi.string().min(1).required(),
-    }),
-  TWILIO_VERIFY_SERVICE_SID: Joi.string()
-    .allow('')
-    .when('OTP_CUSTOMER_PROVIDER', {
-      is: 'twilio_verify',
-      then: Joi.string().pattern(/^VA[0-9a-fA-F]{32}$/).required(),
-    })
-    .when('OTP_VENDOR_PROVIDER', {
-      is: 'twilio_verify',
-      then: Joi.string().pattern(/^VA[0-9a-fA-F]{32}$/).required(),
-    }),
+  TWILIO_ACCOUNT_SID: Joi.when('OTP_TEST_MODE', {
+    is: true,
+    then: Joi.string().allow('').optional(),
+    otherwise: Joi.string()
+      .allow('')
+      .when('OTP_CUSTOMER_PROVIDER', {
+        is: 'twilio_verify',
+        then: Joi.string().pattern(/^AC[0-9a-fA-F]{32}$/).required(),
+      })
+      .when('OTP_VENDOR_PROVIDER', {
+        is: 'twilio_verify',
+        then: Joi.string().pattern(/^AC[0-9a-fA-F]{32}$/).required(),
+      }),
+  }),
+  TWILIO_AUTH_TOKEN: Joi.when('OTP_TEST_MODE', {
+    is: true,
+    then: Joi.string().allow('').optional(),
+    otherwise: Joi.string()
+      .allow('')
+      .when('OTP_CUSTOMER_PROVIDER', {
+        is: 'twilio_verify',
+        then: Joi.string().min(1).required(),
+      })
+      .when('OTP_VENDOR_PROVIDER', {
+        is: 'twilio_verify',
+        then: Joi.string().min(1).required(),
+      }),
+  }),
+  TWILIO_VERIFY_SERVICE_SID: Joi.when('OTP_TEST_MODE', {
+    is: true,
+    then: Joi.string().allow('').optional(),
+    otherwise: Joi.string()
+      .allow('')
+      .when('OTP_CUSTOMER_PROVIDER', {
+        is: 'twilio_verify',
+        then: Joi.string().pattern(/^VA[0-9a-fA-F]{32}$/).required(),
+      })
+      .when('OTP_VENDOR_PROVIDER', {
+        is: 'twilio_verify',
+        then: Joi.string().pattern(/^VA[0-9a-fA-F]{32}$/).required(),
+      }),
+  }),
   TWILIO_VERIFY_TTL_SECONDS: Joi.number().default(600),
   TWILIO_TIMEOUT_MS: Joi.number().default(8000),
 
