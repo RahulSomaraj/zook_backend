@@ -104,7 +104,10 @@ export default () => ({
     verifyServiceSid: process.env.TWILIO_VERIFY_SERVICE_SID ?? '',
     // Displayed to the client for countdown UI. Match the Verify service TTL
     // (Twilio default is 10 minutes).
-    verifyTtlSeconds: parseInt(process.env.TWILIO_VERIFY_TTL_SECONDS ?? '600', 10),
+    verifyTtlSeconds: parseInt(
+      process.env.TWILIO_VERIFY_TTL_SECONDS ?? '600',
+      10,
+    ),
     // Network timeout (ms) for calls to the Twilio API.
     timeoutMs: parseInt(process.env.TWILIO_TIMEOUT_MS ?? '8000', 10),
   },
@@ -118,6 +121,14 @@ export default () => ({
     // 2.9%). Snapshotted into each sub-order's processing_fee at sale time so
     // historical payouts don't move if the rate later changes. See payout.util.
     mamoFeeRate: parseFloat(process.env.MAMO_FEE_RATE ?? '0.029'),
+  },
+  jeebly: {
+    env: process.env.JEEBLY_ENV ?? 'demo',
+    apiKey: process.env.JEEBLY_API_KEY ?? '',
+    clientKey: process.env.JEEBLY_CLIENT_KEY ?? '',
+    demoBaseUrl: process.env.JEEBLY_DEMO_BASE_URL ?? 'https://demo.jeebly.com',
+    productionBaseUrl:
+      process.env.JEEBLY_PRODUCTION_BASE_URL ?? 'https://myjeebly.jeebly.com',
   },
   swagger: {
     // Explicit env wins; otherwise on outside production, off in production.

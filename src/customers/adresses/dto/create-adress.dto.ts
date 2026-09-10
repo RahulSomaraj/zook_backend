@@ -30,6 +30,16 @@ export class CreateAdressDto {
   @MaxLength(50)
   label?: string;
 
+  @ApiPropertyOptional({
+    example: '12',
+    description:
+      'Villa, flat or house number. Required by the courier before a shipment can be created.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  houseNo?: string;
+
   @ApiProperty({ example: 'Villa 12, Al Barsha 1' })
   @IsString()
   @MinLength(3)
@@ -41,6 +51,16 @@ export class CreateAdressDto {
   @IsString()
   @MaxLength(200)
   line2?: string;
+
+  @ApiPropertyOptional({
+    example: 'Al Barsha 1',
+    description:
+      'Delivery area or locality. Required by the courier before a shipment can be created.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  area?: string;
 
   @ApiProperty({ example: 'Dubai' })
   @IsString()

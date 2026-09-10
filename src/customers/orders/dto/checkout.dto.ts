@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsUUID } from 'class-validator';
+import { PaymentMethod } from '@prisma/client';
+import { IsEnum, IsOptional, IsUUID } from 'class-validator';
 
 export class CheckoutDto {
   @ApiPropertyOptional({
@@ -15,4 +16,14 @@ export class CheckoutDto {
   @IsOptional()
   @IsUUID()
   paymentId?: string;
+
+  @ApiPropertyOptional({
+    enum: PaymentMethod,
+    default: PaymentMethod.prepaid,
+    description:
+      'How the order is settled. `cod` allocates a collection amount to each parcel; `prepaid` orders ship only after the payment is verified server-side.',
+  })
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  paymentMethod?: PaymentMethod;
 }

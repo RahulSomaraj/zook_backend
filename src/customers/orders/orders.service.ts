@@ -4,7 +4,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma, ProductSource } from '@prisma/client';
+import {
+  PaymentMethod,
+  PaymentStatus,
+  Prisma,
+  ProductSource,
+} from '@prisma/client';
+import { allocateCodAmounts } from '../../common/utils/cod.util';
 import { computePayoutBreakdown } from '../../common/utils/payout.util';
 import { PrismaService } from '../../database/prisma.service';
 import { CheckoutDto } from './dto/checkout.dto';
@@ -104,6 +110,16 @@ export class OrdersService {
       const deliveryFee = new Prisma.Decimal(0);
       const totalAmount = subtotal.plus(deliveryFee);
       const orderNumber = this.makeOrderNumber();
+      const paymentMethod = dto.paymentMethod ?? PaymentMethod.prepaid;
+      // COD parcels each carry their own collection amount; prepaid orders stay
+      // `pending` until a server-side source verifies the payment.
+      const codAmounts =
+        paymentMethod === PaymentMethod.cod
+          ? allocateCodAmounts(
+              preparedItems.map((item) => item.salePrice),
+              deliveryFee,
+            )
+          : null;
 
       const order = await tx.order.create({
         data: {
@@ -111,6 +127,7 @@ export class OrdersService {
           customerId: userId,
           addressId: dto.addressId ?? null,
           paymentId: dto.paymentId ?? null,
+          paymentMethod,
           subtotal,
           deliveryFee,
           totalAmount,
@@ -126,6 +143,7 @@ export class OrdersService {
         salePrice: number;
         processingFee: number;
         payoutAmount: number;
+        codAmount: number | null;
         product: {
           id: string;
           brand: string;
@@ -140,7 +158,7 @@ export class OrdersService {
           storeName: string;
         } | null;
       }> = [];
-      for (const item of preparedItems) {
+      for (const [index, item] of preparedItems.entries()) {
         const subOrder = await tx.subOrder.create({
           data: {
             subOrderNumber: this.makeSubOrderNumber(),
@@ -151,6 +169,7 @@ export class OrdersService {
             commissionRate: item.commissionRate,
             processingFee: item.processingFee,
             payoutAmount: item.payoutAmount,
+            codAmount: codAmounts ? codAmounts[index] : null,
             statusHistory: {
               create: {
                 status: 'confirmed',
@@ -174,6 +193,7 @@ export class OrdersService {
           salePrice: Number(item.salePrice),
           processingFee: Number(item.processingFee),
           payoutAmount: Number(item.payoutAmount),
+          codAmount: codAmounts ? Number(codAmounts[index]) : null,
           product: {
             id: item.product.id,
             brand: item.product.catalog.brand.name,
@@ -203,6 +223,8 @@ export class OrdersService {
         orderNumber: order.orderNumber,
         addressId: order.addressId,
         paymentId: order.paymentId,
+        paymentMethod: order.paymentMethod,
+        paymentStatus: order.paymentStatus,
         subtotal: order.subtotal,
         deliveryFee: order.deliveryFee,
         totalAmount: order.totalAmount,
@@ -250,6 +272,8 @@ export class OrdersService {
       orderNumber: order.orderNumber,
       addressId: order.addressId,
       paymentId: order.paymentId,
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
       subtotal: order.subtotal,
       deliveryFee: order.deliveryFee,
       totalAmount: order.totalAmount,
@@ -263,6 +287,7 @@ export class OrdersService {
         salePrice: subOrder.salePrice,
         processingFee: subOrder.processingFee,
         payoutAmount: subOrder.payoutAmount,
+        codAmount: subOrder.codAmount,
         product: {
           id: subOrder.product.id,
           brand: subOrder.product.catalog.brand.name,
@@ -305,6 +330,8 @@ export class OrdersService {
     orderNumber: string;
     addressId: string | null;
     paymentId: string | null;
+    paymentMethod: PaymentMethod;
+    paymentStatus: PaymentStatus;
     subtotal: Prisma.Decimal;
     deliveryFee: Prisma.Decimal;
     totalAmount: Prisma.Decimal;
@@ -318,6 +345,7 @@ export class OrdersService {
       salePrice: Prisma.Decimal | number;
       processingFee: Prisma.Decimal | number;
       payoutAmount: Prisma.Decimal | number;
+      codAmount: Prisma.Decimal | number | null;
       product: {
         id: string;
         brand: string;
@@ -338,6 +366,8 @@ export class OrdersService {
       orderNumber: order.orderNumber,
       addressId: order.addressId,
       paymentId: order.paymentId,
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
       subtotal: Number(order.subtotal),
       deliveryFee: Number(order.deliveryFee),
       totalAmount: Number(order.totalAmount),
@@ -348,6 +378,8 @@ export class OrdersService {
         salePrice: Number(subOrder.salePrice),
         processingFee: Number(subOrder.processingFee),
         payoutAmount: Number(subOrder.payoutAmount),
+        codAmount:
+          subOrder.codAmount === null ? null : Number(subOrder.codAmount),
       })),
     };
   }

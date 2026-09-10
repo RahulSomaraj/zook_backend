@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { OtpModule } from '../otp/otp.module';
+import { JeeblyModule } from '../integrations/jeebly/jeebly.module';
+import { ShipmentDataService } from './orders/shipment-data.service';
 import { VendorAuthController } from './vendor-auth.controller';
 import { VendorAuthService } from './vendor-auth.service';
 import { VendorsController } from './vendors.controller';
@@ -14,7 +16,7 @@ import { SettingsController } from './settings/settings.controller';
 import { SettingsService } from './settings/settings.service';
 
 @Module({
-  imports: [AuthModule, OtpModule],
+  imports: [AuthModule, OtpModule, JeeblyModule],
   controllers: [
     VendorAuthController,
     VendorsController,
@@ -28,6 +30,7 @@ import { SettingsService } from './settings/settings.service';
     PhoneVerifyGuard,
     ListingsService,
     VendorOrdersService,
+    ShipmentDataService,
     SettingsService,
   ],
 })

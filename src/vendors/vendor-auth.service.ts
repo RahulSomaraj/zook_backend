@@ -151,6 +151,8 @@ export class VendorAuthService {
           storeAddress: dto.storeAddress,
           pickupArea: dto.area,
           pickupEmirate: dto.emirate,
+          pickupHouseNo: dto.houseNo ?? null,
+          pickupLandmark: dto.landmark ?? null,
         },
       });
       return created;

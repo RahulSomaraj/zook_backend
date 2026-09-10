@@ -120,6 +120,23 @@ enum PayoutStatus {
   redeemed
 }
 
+// How the customer settles an order. Prepaid orders may ship only once a
+// server-side source records the payment as `paid`; COD parcels carry their
+// own allocated collection amount (SubOrder.codAmount).
+enum PaymentMethod {
+  prepaid
+  cod
+}
+
+// Written only by server-verified sources (gateway confirmation or an
+// authorized operator), never from the checkout request. COD orders stay
+// `pending` until the courier collects on delivery.
+enum PaymentStatus {
+  pending
+  paid
+  failed
+}
+
 // ── Models ─────────────────────────────────────────────────────────────
 
 model User {
@@ -214,6 +231,11 @@ model Vendor {
   storeAddress   String?      @map("store_address") // courier pickup only
   pickupArea     String?      @map("pickup_area")
   pickupEmirate  Emirate?     @map("pickup_emirate")
+  // Structured pickup components the courier requires in addition to the
+  // free-form storeAddress. Nullable so existing vendors stay valid; a
+  // shipment is refused with a clear 422 until they are filled in.
+  pickupHouseNo  String?      @map("pickup_house_no")
+  pickupLandmark String?      @map("pickup_landmark")
   pickupLat      Float?       @map("pickup_lat")
   pickupLng      Float?       @map("pickup_lng")
   commissionRate Decimal      @default(10.0) @map("commission_rate") @db.Decimal(5, 2)
@@ -280,8 +302,8 @@ model VendorKyc {
   tradeLicenseExpiry DateTime? @map("trade_license_expiry") @db.Date
   emiratesIdFrontUrl String    @map("emirates_id_front_url") // private bucket
   emiratesIdBackUrl  String    @map("emirates_id_back_url") // private bucket
-  emiratesIdNumber String?     @map("emirates_id_number")
-  emiratesIdExpiry DateTime?   @map("emirates_id_expiry") @db.Date
+  emiratesIdNumber   String?   @map("emirates_id_number")
+  emiratesIdExpiry   DateTime? @map("emirates_id_expiry") @db.Date
   status             KycStatus @default(pending)
   reviewedBy         String?   @map("reviewed_by") @db.Uuid // admin user id
   rejectionReason    String?   @map("rejection_reason")
@@ -522,8 +544,13 @@ model CustomerAddress {
   fullName   String    @map("full_name")
   phone      String
   label      String? // e.g. Home, Work
+  // Structured delivery components the courier requires alongside the address
+  // lines. Nullable so existing addresses stay valid; a shipment is refused
+  // with a clear 422 until they are filled in.
+  houseNo    String?   @map("house_no")
   line1      String
   line2      String?
+  area       String?
   city       String
   state      String?
   country    String
@@ -551,16 +578,21 @@ model CustomerAddress {
 }
 
 model Order {
-  id                  String    @id @default(uuid()) @db.Uuid
-  orderNumber         String    @unique @map("order_number") // human ref e.g. ORD-041
-  customerId          String    @map("customer_id") @db.Uuid // users.id
-  addressId           String?   @map("address_id") @db.Uuid
-  subtotal            Decimal   @db.Decimal(10, 2)
-  deliveryFee         Decimal   @default(0) @map("delivery_fee") @db.Decimal(10, 2)
-  totalAmount         Decimal   @map("total_amount") @db.Decimal(10, 2)
-  paymentId           String?   @map("payment_id") @db.Uuid // Payment row (Gap F)
-  estimatedDeliveryAt DateTime? @map("estimated_delivery_at")
-  createdAt           DateTime  @default(now()) @map("created_at")
+  id                  String        @id @default(uuid()) @db.Uuid
+  orderNumber         String        @unique @map("order_number") // human ref e.g. ORD-041
+  customerId          String        @map("customer_id") @db.Uuid // users.id
+  addressId           String?       @map("address_id") @db.Uuid
+  subtotal            Decimal       @db.Decimal(10, 2)
+  deliveryFee         Decimal       @default(0) @map("delivery_fee") @db.Decimal(10, 2)
+  totalAmount         Decimal       @map("total_amount") @db.Decimal(10, 2)
+  paymentId           String?       @map("payment_id") @db.Uuid // client payment reference; not proof of payment
+  paymentMethod       PaymentMethod @default(prepaid) @map("payment_method")
+  // Written only by server-verified sources (gateway confirmation or an
+  // authorized operator), never from the checkout request.
+  paymentStatus       PaymentStatus @default(pending) @map("payment_status")
+  paidAt              DateTime?     @map("paid_at")
+  estimatedDeliveryAt DateTime?     @map("estimated_delivery_at")
+  createdAt           DateTime      @default(now()) @map("created_at")
 
   address   CustomerAddress? @relation(fields: [addressId], references: [id], onDelete: SetNull)
   subOrders SubOrder[]
@@ -588,20 +620,40 @@ model SubOrder {
   packPhotoAfterUrl  String?      @map("pack_photo_after_url")
   // Set once BOTH packing photos have been uploaded.
   photosVerifiedAt   DateTime?    @map("photos_verified_at")
+  // Measured weight of the packed parcel, recorded by the vendor while
+  // `preparing`. Required before a courier shipment can be created.
+  packageWeightKg    Decimal?     @map("package_weight_kg") @db.Decimal(6, 3)
+  // Amount the courier collects for this parcel on COD orders: sale price plus
+  // this sub-order's share of the delivery fee, allocated at checkout. Null on
+  // prepaid orders.
+  codAmount          Decimal?     @map("cod_amount") @db.Decimal(10, 2)
   deliveredAt        DateTime?    @map("delivered_at")
   cancelledAt        DateTime?    @map("cancelled_at")
   createdAt          DateTime     @default(now()) @map("created_at")
 
-  order         Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  vendor        Vendor?                 @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  product       Product                 @relation(fields: [productId], references: [id])
-  statusHistory SubOrderStatusHistory[]
+  order            Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  vendor           Vendor?                 @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  product          Product                 @relation(fields: [productId], references: [id])
+  statusHistory    SubOrderStatusHistory[]
+  shipmentCreation ShipmentCreation?
 
   @@index([status])
   @@index([vendorId])
   @@index([payoutStatus])
   @@index([createdAt])
   @@map("sub_orders")
+}
+
+model ShipmentCreation {
+  // Durable, non-expiring claim: one provider creation attempt per sub-order.
+  // Retained on all uncertain outcomes until an operator reconciles it.
+  subOrderId String   @id @map("sub_order_id") @db.Uuid
+  awbNumber  String?  @map("awb_number")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  subOrder SubOrder @relation(fields: [subOrderId], references: [id], onDelete: Restrict)
+
+  @@map("shipment_creations")
 }
 
 // Append-only ledger powering timelines + "time in status" on the admin table.

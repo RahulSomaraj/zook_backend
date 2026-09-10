@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Emirate } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
@@ -6,6 +6,7 @@ import {
   IsBoolean,
   IsEmail,
   IsEnum,
+  IsOptional,
   IsString,
   Matches,
   MaxLength,
@@ -57,6 +58,28 @@ export class RegisterVendorDto {
   @MinLength(2)
   @MaxLength(120)
   area!: string;
+
+  @ApiPropertyOptional({
+    example: '4',
+    description:
+      'Shop, unit or house number at the pickup address. Required by the courier before a shipment can be created.',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(60)
+  houseNo?: string;
+
+  @ApiPropertyOptional({
+    example: 'Opposite Al Khail Mall',
+    description:
+      'Nearby landmark for the pickup address. Required by the courier before a shipment can be created.',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(200)
+  landmark?: string;
 
   @ApiProperty({ enum: Emirate, example: Emirate.dubai })
   @IsEnum(Emirate)

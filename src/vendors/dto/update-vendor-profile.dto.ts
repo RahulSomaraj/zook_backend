@@ -32,6 +32,24 @@ export class UpdateVendorProfileDto {
   @IsString()
   area?: string;
 
+  @ApiPropertyOptional({
+    example: '4',
+    description:
+      'Shop, unit or house number at the pickup address. Required by the courier before a shipment can be created.',
+  })
+  @IsOptional()
+  @IsString()
+  houseNo?: string;
+
+  @ApiPropertyOptional({
+    example: 'Opposite Al Khail Mall',
+    description:
+      'Nearby landmark for the pickup address. Required by the courier before a shipment can be created.',
+  })
+  @IsOptional()
+  @IsString()
+  landmark?: string;
+
   @ApiPropertyOptional({ enum: Emirate })
   @IsOptional()
   @IsEnum(Emirate)

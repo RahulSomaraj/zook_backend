@@ -141,21 +141,25 @@ export class ListingsService {
   async getPickupAddress(userId: string) {
     const vendorId = await this.getVendorId(userId);
     const vendor = await this.prisma.vendor.findUnique({
-    where: { id: vendorId },
-    select: {
-      storeAddress: true,
-      pickupArea: true,
-      pickupEmirate: true,
-      pickupLat: true,
-      pickupLng: true,
-    },
-  });
-  return {
-    storeAddress: vendor?.storeAddress ?? null,
-    pickupArea: vendor?.pickupArea ?? null,
-    pickupEmirate: vendor?.pickupEmirate ?? null,
-    pickupLat: vendor?.pickupLat ?? null,
-    pickupLng: vendor?.pickupLng ?? null,
-  };
+      where: { id: vendorId },
+      select: {
+        storeAddress: true,
+        pickupArea: true,
+        pickupEmirate: true,
+        pickupHouseNo: true,
+        pickupLandmark: true,
+        pickupLat: true,
+        pickupLng: true,
+      },
+    });
+    return {
+      storeAddress: vendor?.storeAddress ?? null,
+      pickupArea: vendor?.pickupArea ?? null,
+      pickupEmirate: vendor?.pickupEmirate ?? null,
+      pickupHouseNo: vendor?.pickupHouseNo ?? null,
+      pickupLandmark: vendor?.pickupLandmark ?? null,
+      pickupLat: vendor?.pickupLat ?? null,
+      pickupLng: vendor?.pickupLng ?? null,
+    };
   }
 }

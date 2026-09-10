@@ -15,8 +15,12 @@ export const envValidationSchema = Joi.object({
     .default('log'),
   LOG_FORMAT: Joi.string().valid('pretty', 'json').default('pretty'),
 
-  DATABASE_URL: Joi.string().uri({ scheme: ['postgresql', 'postgres'] }).required(),
-  DIRECT_URL: Joi.string().uri({ scheme: ['postgresql', 'postgres'] }).optional(),
+  DATABASE_URL: Joi.string()
+    .uri({ scheme: ['postgresql', 'postgres'] })
+    .required(),
+  DIRECT_URL: Joi.string()
+    .uri({ scheme: ['postgresql', 'postgres'] })
+    .optional(),
 
   // Auth: secret used to sign/verify our own JWTs.
   JWT_SECRET: Joi.string().min(32).required(),
@@ -55,7 +59,10 @@ export const envValidationSchema = Joi.object({
   // Redis connection URL (redis:// or rediss://). Backs the per-phone OTP
   // cooldown/daily-cap and, when present, distributed request throttling.
   // Optional: when unset those features degrade safely instead of crashing.
-  REDIS_URL: Joi.string().uri({ scheme: ['redis', 'rediss'] }).allow('').optional(),
+  REDIS_URL: Joi.string()
+    .uri({ scheme: ['redis', 'rediss'] })
+    .allow('')
+    .optional(),
 
   // OTP delivery provider selection per audience.
   // Test mode is intentionally forbidden in production because the local
@@ -85,11 +92,15 @@ export const envValidationSchema = Joi.object({
       .allow('')
       .when('OTP_CUSTOMER_PROVIDER', {
         is: 'twilio_verify',
-        then: Joi.string().pattern(/^AC[0-9a-fA-F]{32}$/).required(),
+        then: Joi.string()
+          .pattern(/^AC[0-9a-fA-F]{32}$/)
+          .required(),
       })
       .when('OTP_VENDOR_PROVIDER', {
         is: 'twilio_verify',
-        then: Joi.string().pattern(/^AC[0-9a-fA-F]{32}$/).required(),
+        then: Joi.string()
+          .pattern(/^AC[0-9a-fA-F]{32}$/)
+          .required(),
       }),
   }),
   TWILIO_AUTH_TOKEN: Joi.when('OTP_TEST_MODE', {
@@ -113,11 +124,15 @@ export const envValidationSchema = Joi.object({
       .allow('')
       .when('OTP_CUSTOMER_PROVIDER', {
         is: 'twilio_verify',
-        then: Joi.string().pattern(/^VA[0-9a-fA-F]{32}$/).required(),
+        then: Joi.string()
+          .pattern(/^VA[0-9a-fA-F]{32}$/)
+          .required(),
       })
       .when('OTP_VENDOR_PROVIDER', {
         is: 'twilio_verify',
-        then: Joi.string().pattern(/^VA[0-9a-fA-F]{32}$/).required(),
+        then: Joi.string()
+          .pattern(/^VA[0-9a-fA-F]{32}$/)
+          .required(),
       }),
   }),
   TWILIO_VERIFY_TTL_SECONDS: Joi.number().default(600),
@@ -130,6 +145,16 @@ export const envValidationSchema = Joi.object({
   // Mamo Pay processing-fee rate as a fraction (0.029 = 2.9%). Used to compute
   // the gateway cut on each payout. Defaults to 2.9% when unset.
   MAMO_FEE_RATE: Joi.number().min(0).max(1).default(0.029),
+
+  JEEBLY_ENV: Joi.string().valid('demo', 'production').default('demo'),
+  JEEBLY_API_KEY: Joi.string().allow('').optional(),
+  JEEBLY_CLIENT_KEY: Joi.string().allow('').optional(),
+  JEEBLY_DEMO_BASE_URL: Joi.string()
+    .uri({ scheme: ['https'] })
+    .default('https://demo.jeebly.com'),
+  JEEBLY_PRODUCTION_BASE_URL: Joi.string()
+    .uri({ scheme: ['https'] })
+    .default('https://myjeebly.jeebly.com'),
 
   // Leave unset to default Swagger on outside production and off in production.
   SWAGGER_ENABLED: Joi.boolean().optional(),

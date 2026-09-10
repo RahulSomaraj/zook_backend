@@ -17,6 +17,7 @@ import { Role } from '../../common/enums/role.enum';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { AttachPackPhotoDto } from './dto/attach-pack-photo.dto';
 import { QueryVendorOrdersDto } from './dto/query-vendor-orders.dto';
+import { RecordPackageWeightDto } from './dto/record-package-weight.dto';
 import { VendorOrdersService } from './vendor-orders.service';
 
 @ApiTags('vendor-orders')
@@ -84,15 +85,28 @@ export class VendorOrdersController {
     return this.orders.attachPackPhoto(user.id, id, dto);
   }
 
+  @Post(':id/package-weight')
+  @ApiOperation({
+    summary:
+      'Record the measured weight of the packed parcel in kg. Order must be preparing and not yet booked.',
+  })
+  recordPackageWeight(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RecordPackageWeightDto,
+  ) {
+    return this.orders.recordPackageWeight(user.id, id, dto);
+  }
+
   @Post(':id/ready-for-pickup')
   @ApiOperation({
     summary:
-      'Mark a packed sub-order ready for courier pickup (preparing → ready). Requires both photos.',
+      'Create the Jeebly shipment and mark a packed sub-order ready for pickup (preparing → ready). Requires both photos, a recorded package weight and a verified payment or COD allocation.',
   })
   readyForPickup(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.orders.readyforpickup(user.id, id);
+    return this.orders.readyForPickup(user.id, id);
   }
 }
