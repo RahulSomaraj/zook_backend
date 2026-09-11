@@ -40,7 +40,8 @@ export class OtpService {
     // Reject implausible numbers BEFORE any paid Twilio call. Catches e.g. a
     // foreign number sent without '+', which normalizePhone would otherwise
     // mangle into an invalid +971… string (Twilio error 60200).
-    if (!isPlausiblePhone(phone)) {
+    // Allow arbitrary test numbers when using the local OTP test mode.
+    if (!this.testMode && !isPlausiblePhone(phone)) {
       throw new BadRequestException({
         message:
           'Invalid phone number. UAE numbers need 9 digits starting with 5 (e.g. +9715…); other countries must include their country code with a +.',

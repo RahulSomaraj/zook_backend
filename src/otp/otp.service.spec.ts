@@ -54,7 +54,7 @@ describe('OtpService (provider routing)', () => {
     );
 
     await svc.issue('+919656082258', 'customer_auth');
-    await svc.issue('+15551234567', 'vendor_auth');
+    await svc.issue('9656082258', 'vendor_auth');
 
     expect(local.issue).toHaveBeenNthCalledWith(
       1,
@@ -63,7 +63,7 @@ describe('OtpService (provider routing)', () => {
     );
     expect(local.issue).toHaveBeenNthCalledWith(
       2,
-      '+15551234567',
+      '+9719656082258',
       'vendor_auth',
     );
     expect(twilio.issue).not.toHaveBeenCalled();
