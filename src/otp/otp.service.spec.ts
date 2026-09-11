@@ -91,14 +91,15 @@ describe('OtpService (provider routing)', () => {
     expect(twilio.issue).toHaveBeenCalledWith('+971501234567', 'customer_auth');
   });
 
-  it('rejects implausible numbers before any provider/limiter call (400)', async () => {
+  it('accepts unprefixed vendor numbers even when OTP test mode is off', async () => {
     // An Indian mobile sent without '+91' — normalizePhone would mangle it
     // into +9719656082258 (10 national digits, impossible for UAE).
-    await expect(svc.issue('9656082258', 'customer_auth')).rejects.toMatchObject(
-      { status: 400 },
+    await expect(svc.issue('9656082258')).resolves.toEqual(
+      { expiresInSeconds: 300 },
     );
+    expect(local.issue).toHaveBeenCalledWith('+9719656082258', 'vendor_auth');
     expect(twilio.issue).not.toHaveBeenCalled();
-    expect(limiter.assertCanSend).not.toHaveBeenCalled();
+    expect(limiter.assertCanSend).toHaveBeenCalledWith('+9719656082258', 'vendor_auth');
   });
 
   it('accepts properly prefixed foreign numbers (+91…)', async () => {

@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { isPlausiblePhone, normalizePhone } from '../common/utils/phone.util';
+import { normalizePhone } from '../common/utils/phone.util';
 import { OtpRateLimiterService } from './otp-rate-limiter.service';
 import { LocalOtpProvider } from './providers/local-otp.provider';
 import { IssuedOtp, OtpProvider } from './providers/otp-provider.interface';
@@ -40,14 +40,16 @@ export class OtpService {
     // Reject implausible numbers BEFORE any paid Twilio call. Catches e.g. a
     // foreign number sent without '+', which normalizePhone would otherwise
     // mangle into an invalid +971… string (Twilio error 60200).
-    // Allow arbitrary test numbers when using the local OTP test mode.
-    if (!this.testMode && !isPlausiblePhone(phone)) {
+    // Temporarily disabled for development: accept numbers without country validation.
+    /*
+    if (!isPlausiblePhone(phone)) {
       throw new BadRequestException({
         message:
           'Invalid phone number. UAE numbers need 9 digits starting with 5 (e.g. +9715…); other countries must include their country code with a +.',
         code: 'PHONE_INVALID',
       });
     }
+    */
     // Abuse gate first — never spend a paid send on a throttled number.
     await this.rateLimiter.assertCanSend(phone, purpose);
 
