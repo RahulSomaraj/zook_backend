@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import {
 import { allocateCodAmounts } from '../../common/utils/cod.util';
 import { computePayoutBreakdown } from '../../common/utils/payout.util';
 import { PrismaService } from '../../database/prisma.service';
+import { JeeblyService } from '../../integrations/jeebly/jeebly.service';
 import { CheckoutDto } from './dto/checkout.dto';
 
 @Injectable()
@@ -20,6 +22,7 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly jeebly: JeeblyService,
   ) {}
 
   async checkout(userId: string, dto: CheckoutDto) {
@@ -43,10 +46,14 @@ export class OrdersService {
     });
 
     if (!cart || cart.items.length === 0) {
-      throw new BadRequestException({ message: 'Cart is empty', code: 'CART_EMPTY' });
+      throw new BadRequestException({
+        message: 'Cart is empty',
+        code: 'CART_EMPTY',
+      });
     }
 
-    const mamoFeeRate = this.config.get<number>('payments.mamoFeeRate') ?? 0.029;
+    const mamoFeeRate =
+      this.config.get<number>('payments.mamoFeeRate') ?? 0.029;
 
     return this.prisma.$transaction(async (tx) => {
       const productIds = cart.items.map((item) => item.productId);
@@ -61,16 +68,24 @@ export class OrdersService {
       });
 
       if (latestProducts.length !== productIds.length) {
-        throw new NotFoundException({ message: 'One or more cart products no longer exist', code: 'PRODUCT_NOT_FOUND' });
+        throw new NotFoundException({
+          message: 'One or more cart products no longer exist',
+          code: 'PRODUCT_NOT_FOUND',
+        });
       }
 
-      const productById = new Map(latestProducts.map((product) => [product.id, product]));
+      const productById = new Map(
+        latestProducts.map((product) => [product.id, product]),
+      );
 
       let subtotal = new Prisma.Decimal(0);
       const preparedItems = cart.items.map((item) => {
         const product = productById.get(item.productId);
         if (!product) {
-          throw new NotFoundException({ message: `Product ${item.productId} not found`, code: 'PRODUCT_NOT_FOUND' });
+          throw new NotFoundException({
+            message: `Product ${item.productId} not found`,
+            code: 'PRODUCT_NOT_FOUND',
+          });
         }
 
         if (!product.isActive) {
@@ -94,7 +109,11 @@ export class OrdersService {
           product.source === ProductSource.vendor && product.vendor
             ? product.vendor.commissionRate
             : new Prisma.Decimal(0);
-        const payout = computePayoutBreakdown(salePrice, commissionRate, mamoFeeRate);
+        const payout = computePayoutBreakdown(
+          salePrice,
+          commissionRate,
+          mamoFeeRate,
+        );
 
         return {
           cartItemId: item.id,
@@ -235,6 +254,54 @@ export class OrdersService {
     });
   }
 
+  /**
+   * Live courier status for one item of the customer's order, straight from
+   * Jeebly. Read-only on both sides, so the app may poll it. The lookup is
+   * scoped to the customer's own order, so a foreign id is a plain 404.
+   */
+  async getSubOrderTracking(
+    userId: string,
+    orderId: string,
+    subOrderId: string,
+  ) {
+    const subOrder = await this.prisma.subOrder.findFirst({
+      where: { id: subOrderId, orderId, order: { customerId: userId } },
+      select: {
+        id: true,
+        subOrderNumber: true,
+        status: true,
+        courierName: true,
+        awbNumber: true,
+      },
+    });
+    if (!subOrder) {
+      throw new NotFoundException({
+        message: 'Order not found',
+        code: 'ORDER_NOT_FOUND',
+      });
+    }
+    if (!subOrder.awbNumber) {
+      throw new ConflictException({
+        code: 'SHIPMENT_NOT_CREATED',
+        message: 'This item has not been handed to the courier yet',
+      });
+    }
+
+    const tracking = await this.jeebly.trackShipment(subOrder.awbNumber);
+    return {
+      subOrderId: subOrder.id,
+      subOrderNumber: subOrder.subOrderNumber,
+      status: subOrder.status,
+      courierName: subOrder.courierName,
+      awbNumber: subOrder.awbNumber,
+      lastStatus: tracking.lastStatus,
+      pickupDate: tracking.pickupDate,
+      bookingDate: tracking.bookingDate,
+      bookingTime: tracking.bookingTime,
+      events: tracking.events,
+    };
+  }
+
   async getOrder(userId: string, orderId: string) {
     const order = await this.prisma.order.findFirst({
       where: {
@@ -264,7 +331,10 @@ export class OrdersService {
     });
 
     if (!order) {
-      throw new NotFoundException({ message: 'Order not found', code: 'ORDER_NOT_FOUND' });
+      throw new NotFoundException({
+        message: 'Order not found',
+        code: 'ORDER_NOT_FOUND',
+      });
     }
 
     return this.toOrderResponse({

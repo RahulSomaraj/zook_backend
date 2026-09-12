@@ -14,7 +14,12 @@ import { VendorOrdersService } from './vendor-orders.service';
 import { JeeblyService } from '../../integrations/jeebly/jeebly.service';
 import { ShipmentDataService } from './shipment-data.service';
 
-const jeeblyMock = { createShipment: jest.fn(), assertConfigured: jest.fn() };
+const jeeblyMock = {
+  createShipment: jest.fn(),
+  assertConfigured: jest.fn(),
+  generateShipmentLabel: jest.fn(),
+  trackShipment: jest.fn(),
+};
 const shipmentDataMock = { buildPayload: jest.fn() };
 
 const prismaMock = {
@@ -555,6 +560,206 @@ describe('VendorOrdersService', () => {
       expect(
         transactionMock.subOrderStatusHistory.create,
       ).not.toHaveBeenCalled();
+    });
+  });
+  describe('getShippingLabel', () => {
+    const label = {
+      data: Buffer.from('%PDF-1.4'),
+      contentType: 'application/pdf',
+      extension: 'pdf',
+    };
+    const booked = {
+      subOrderNumber: 'SUB-041',
+      status: OrderStatus.ready,
+      awbNumber: 'JB304362',
+    };
+    const call = () =>
+      service
+        .getShippingLabel(USER_ID, SUB_ORDER_ID)
+        .catch((caught: unknown) => caught);
+
+    beforeEach(() => {
+      prismaMock.subOrder.findFirst.mockResolvedValue(booked);
+      jeeblyMock.generateShipmentLabel.mockResolvedValue(label);
+    });
+
+    it('fetches the label for the stored AWB and names the file', async () => {
+      await expect(
+        service.getShippingLabel(USER_ID, SUB_ORDER_ID),
+      ).resolves.toEqual({ ...label, fileName: 'SUB-041-JB304362.pdf' });
+      expect(prismaMock.subOrder.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: SUB_ORDER_ID, vendorId: VENDOR_ID },
+        }),
+      );
+      expect(jeeblyMock.generateShipmentLabel).toHaveBeenCalledWith('JB304362');
+    });
+
+    it('allows reprints after the parcel has shipped', async () => {
+      prismaMock.subOrder.findFirst.mockResolvedValue({
+        ...booked,
+        status: OrderStatus.shipped,
+      });
+      await expect(
+        service.getShippingLabel(USER_ID, SUB_ORDER_ID),
+      ).resolves.toMatchObject({ fileName: 'SUB-041-JB304362.pdf' });
+    });
+
+    it('sanitises unexpected characters in the file name', async () => {
+      prismaMock.subOrder.findFirst.mockResolvedValue({
+        ...booked,
+        subOrderNumber: 'SUB 041"x',
+      });
+      await expect(
+        service.getShippingLabel(USER_ID, SUB_ORDER_ID),
+      ).resolves.toMatchObject({ fileName: 'SUB_041_x-JB304362.pdf' });
+    });
+
+    it("returns 404 for a sub-order that is not the vendor's", async () => {
+      prismaMock.subOrder.findFirst.mockResolvedValue(null);
+      expect(await call()).toBeInstanceOf(NotFoundException);
+      expect(jeeblyMock.generateShipmentLabel).not.toHaveBeenCalled();
+    });
+
+    it('returns 409 before a shipment exists', async () => {
+      prismaMock.subOrder.findFirst.mockResolvedValue({
+        ...booked,
+        status: OrderStatus.preparing,
+        awbNumber: null,
+      });
+      const error = await call();
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as ConflictException).getResponse()).toMatchObject({
+        code: 'SHIPMENT_NOT_CREATED',
+      });
+      expect(jeeblyMock.generateShipmentLabel).not.toHaveBeenCalled();
+    });
+
+    it('returns 409 for a cancelled order', async () => {
+      prismaMock.subOrder.findFirst.mockResolvedValue({
+        ...booked,
+        status: OrderStatus.cancelled,
+      });
+      expect(await call()).toBeInstanceOf(ConflictException);
+      expect(jeeblyMock.generateShipmentLabel).not.toHaveBeenCalled();
+    });
+
+    it('propagates provider failures unchanged', async () => {
+      jeeblyMock.generateShipmentLabel.mockRejectedValue(
+        new BadGatewayException({ code: 'JEEBLY_UNKNOWN_SHIPMENT' }),
+      );
+      expect(await call()).toBeInstanceOf(BadGatewayException);
+    });
+  });
+
+  describe('getShipmentTracking', () => {
+    const tracking = {
+      awbNumber: 'JB304362',
+      customerReference: 'SUB-041',
+      lastStatus: 'out_for_delivery',
+      pickupDate: '2026-09-11',
+      bookingDate: '2026-09-11',
+      bookingTime: '10:12',
+      events: [
+        {
+          status: 'out_for_delivery',
+          label: 'Out For Delivery',
+          description: 'Consignment is out for delivery',
+          hubName: 'Jeebly Warehouse',
+          occurredAt: '2026-09-11T07:50:54.000Z',
+          riderName: null,
+          failureReason: null,
+          proofOfDeliveryUrl: null,
+          signatureUrl: null,
+        },
+      ],
+    };
+    const booked = {
+      subOrderNumber: 'SUB-041',
+      status: OrderStatus.shipped,
+      courierName: 'Jeebly',
+      awbNumber: 'JB304362',
+    };
+    const call = () =>
+      service
+        .getShipmentTracking(USER_ID, SUB_ORDER_ID)
+        .catch((caught: unknown) => caught);
+
+    beforeEach(() => {
+      prismaMock.subOrder.findFirst.mockResolvedValue(booked);
+      jeeblyMock.trackShipment.mockResolvedValue(tracking);
+    });
+
+    it('tracks the stored AWB and merges the local order state', async () => {
+      await expect(
+        service.getShipmentTracking(USER_ID, SUB_ORDER_ID),
+      ).resolves.toEqual({
+        subOrderNumber: 'SUB-041',
+        status: OrderStatus.shipped,
+        courierName: 'Jeebly',
+        awbNumber: 'JB304362',
+        lastStatus: 'out_for_delivery',
+        pickupDate: '2026-09-11',
+        bookingDate: '2026-09-11',
+        bookingTime: '10:12',
+        events: tracking.events,
+      });
+      expect(prismaMock.subOrder.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: SUB_ORDER_ID, vendorId: VENDOR_ID },
+        }),
+      );
+      expect(jeeblyMock.trackShipment).toHaveBeenCalledWith('JB304362');
+    });
+
+    it('writes nothing', async () => {
+      await service.getShipmentTracking(USER_ID, SUB_ORDER_ID);
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(transactionMock.subOrder.updateMany).not.toHaveBeenCalled();
+      expect(
+        transactionMock.subOrderStatusHistory.create,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('still tracks a cancelled order that was already booked', async () => {
+      prismaMock.subOrder.findFirst.mockResolvedValue({
+        ...booked,
+        status: OrderStatus.cancelled,
+      });
+      await expect(
+        service.getShipmentTracking(USER_ID, SUB_ORDER_ID),
+      ).resolves.toMatchObject({
+        status: OrderStatus.cancelled,
+        lastStatus: 'out_for_delivery',
+      });
+    });
+
+    it("returns 404 for a sub-order that is not the vendor's", async () => {
+      prismaMock.subOrder.findFirst.mockResolvedValue(null);
+      expect(await call()).toBeInstanceOf(NotFoundException);
+      expect(jeeblyMock.trackShipment).not.toHaveBeenCalled();
+    });
+
+    it('returns 409 before a shipment exists', async () => {
+      prismaMock.subOrder.findFirst.mockResolvedValue({
+        ...booked,
+        status: OrderStatus.preparing,
+        courierName: null,
+        awbNumber: null,
+      });
+      const error = await call();
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as ConflictException).getResponse()).toMatchObject({
+        code: 'SHIPMENT_NOT_CREATED',
+      });
+      expect(jeeblyMock.trackShipment).not.toHaveBeenCalled();
+    });
+
+    it('propagates provider failures unchanged', async () => {
+      jeeblyMock.trackShipment.mockRejectedValue(
+        new BadGatewayException({ code: 'JEEBLY_UNKNOWN_SHIPMENT' }),
+      );
+      expect(await call()).toBeInstanceOf(BadGatewayException);
     });
   });
 });

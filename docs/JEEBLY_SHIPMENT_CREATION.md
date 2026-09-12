@@ -258,8 +258,9 @@ claiming but before sending is deliberately handled the same conservative way.
 Even explicit provider rejections retain the claim, because the supplied
 contract does not establish which failures guarantee no side effect.
 
-Operator procedure (no tracking/cancellation API or public reconciliation
-endpoint is implemented):
+Operator procedure (no cancellation API or public reconciliation endpoint is
+implemented; the tracking endpoint described below needs the AWB already stored
+on the sub-order, so it cannot look up a claim that has none):
 
 1. Look up `SubOrder.subOrderNumber`. Inspect `shipment_creations` and restricted
    backend recovery logs for its AWB. Match that reference to Jeebly's
@@ -666,3 +667,178 @@ export class JeeblyService {
   }
 }
 ```
+
+## Label generation
+
+Once a sub-order has an AWB, the vendor app downloads the printable label
+through the API and hands it to a PDF viewer or share sheet. Jeebly's
+`POST /customer/generate_shipment_label` takes the AWB as `reference_number`
+and returns the label file itself (PDF or image) on success, and a JSON
+`{ "success": "false", "message": "..." }` body on failure. The client therefore
+branches on the response content type rather than parsing JSON first.
+
+| Item | Value |
+| --- | --- |
+| Endpoint | `GET /api/vendors/me/orders/:id/label` (vendor JWT) |
+| Precondition | sub-order belongs to the vendor, has an AWB, and is not cancelled |
+| Success | raw label bytes; `Content-Type` as returned by Jeebly; `Content-Disposition: inline; filename="<subOrderNumber>-<awb>.<ext>"`; `Cache-Control: private, no-store` |
+| Reprints | allowed; the call is read-only on the provider side, so no claim row or history is written |
+| Size cap | 5 MB, checked on `Content-Length` before buffering and on the bytes after |
+
+The response is not the usual JSON envelope: `ResponseInterceptor` passes a
+`StreamableFile` through untouched. Every other endpoint is unaffected.
+
+### Error codes
+
+| HTTP | `code` | Meaning |
+| --- | --- | --- |
+| 404 | — / `ORDER_NOT_FOUND` | sub-order not found for this vendor / not in this customer's order |
+| 409 | `SHIPMENT_NOT_CREATED` | no AWB yet; call ready-for-pickup first |
+| 409 | — | order is cancelled |
+| 502 | `JEEBLY_UNKNOWN_SHIPMENT` | Jeebly answered "Invalid Shipment Number" for the stored AWB |
+| 502 | `JEEBLY_AUTH_REJECTED` | credentials rejected |
+| 502 | `JEEBLY_LABEL_FORMAT_UNSUPPORTED` | Jeebly returned a 2xx JSON body instead of the file (API change; see below) |
+| 502 | `JEEBLY_LABEL_TOO_LARGE` / `JEEBLY_LABEL_INVALID` | body over the cap, empty, or its bytes do not match the declared type |
+| 502 | `JEEBLY_UNREACHABLE` | network failure before a response |
+| 504 | `JEEBLY_TIMEOUT` | no response within 15 s |
+
+Provider messages are never echoed; only these fixed codes are emitted, as
+with shipment creation.
+
+### Verified behaviour
+
+Both branches were exercised against the demo host on 2026-09-11.
+
+- Failure: HTTP 400 with `Content-Type: application/json; charset=utf-8` and
+  `{"success":"false","message":"Invalid Customer Key"}`.
+- Success: shipment SUB-LLK-148223-4 (AWB JB114728) returned HTTP 200 with
+  `Content-Type: application/pdf`, a 44 KB single-page PDF starting with
+  `%PDF-1.4`, and the API relayed it as
+  `Content-Disposition: inline; filename="SUB-LLK-148223-4-JB114728.pdf"`.
+
+If Jeebly ever switches to a JSON success body carrying a URL or base64 field,
+the API returns `JEEBLY_LABEL_FORMAT_UNSUPPORTED` and the success branch in
+`JeeblyService.generateShipmentLabel` needs to decode that field instead. To
+re-check by hand:
+
+```bash
+curl -sS -D - -o label.out -X POST https://demo.jeebly.com/customer/generate_shipment_label -H "X-API-KEY: $JEEBLY_API_KEY" -H "client_key: $JEEBLY_CLIENT_KEY" -H "Content-Type: application/json" -d '{"reference_number":"<AWB>"}'
+```
+
+## Order tracking
+
+Once a sub-order has an AWB, the vendor app can show where the parcel is.
+Jeebly's `POST /customer/track_shipment` takes the AWB as `reference_number`
+and returns `{ "success": "true", "Tracking": { ... } }` with the current
+`last_status` and an `events` list. The failure body is the same
+`{ "success": "false", "message": "..." }` as the other endpoints. Both bodies
+are JSON, but the Postman capture labels the success body `text/html` while the
+demo host now sends `application/json`, so the client parses the body
+regardless of content type and judges it on `success`.
+
+| Item | Value |
+| --- | --- |
+| Endpoint (vendor) | `GET /api/vendors/me/orders/:id/tracking` (vendor JWT) |
+| Endpoint (customer) | `GET /api/customers/orders/:orderId/sub-orders/:subOrderId/tracking` (customer JWT; same response plus `subOrderId`) |
+| Precondition | sub-order belongs to the caller (the vendor, or the customer's own order) and has an AWB; cancelled orders stay trackable |
+| Writes | none; local status is still owned by the fulfilment endpoints, and no history row is added |
+| Polling | allowed; the provider call is read-only, and the response is `Cache-Control: private, no-store` |
+
+### Response
+
+Local order fields come from the database; the rest is normalised from Jeebly.
+
+```json
+{
+  "subOrderNumber": "SUB-LLK-148223-4",
+  "status": "ready",
+  "courierName": "Jeebly",
+  "awbNumber": "JB114728",
+  "lastStatus": "out_for_delivery",
+  "pickupDate": "2026-09-11",
+  "bookingDate": "2026-09-11",
+  "bookingTime": "10:12",
+  "events": [
+    {
+      "status": "out_for_delivery",
+      "label": "Out For Delivery",
+      "description": "Consignment is out for delivery",
+      "hubName": "Jeebly Warehouse",
+      "occurredAt": "2026-09-11T07:50:54.000Z",
+      "riderName": null,
+      "failureReason": null,
+      "proofOfDeliveryUrl": null,
+      "signatureUrl": null
+    }
+  ]
+}
+```
+
+- `lastStatus` and each event `status` are Jeebly's status text lower-cased
+  with runs of non-alphanumerics collapsed to `_`. Jeebly itself mixes
+  `"Delivered"`, `"delivered"` and `"pickup_scheduled"` across responses, so
+  clients should switch on the normalised key and display `label`. Statuses
+  seen so far: `pickup_scheduled`, `pickup_completed`, `inscan_at_hub`,
+  `out_for_delivery`, `delivered`. The specification does not publish a closed
+  list, so treat unknown keys as informational.
+- `occurredAt` is ISO 8601 UTC (Jeebly states all events are UTC). A timestamp
+  that cannot be parsed becomes `null` rather than failing the call.
+- `events` are ordered by `occurredAt`, most recent first, by this API. The
+  specification promises that order but the demo host has returned oldest
+  first. Events without a parseable timestamp keep Jeebly's order and go last.
+- `proofOfDeliveryUrl` and `signatureUrl` are passed through only when they are
+  absolute `https` URLs.
+- Recipient and shipper phone numbers, the COD amount and rider codes in
+  Jeebly's events are deliberately not relayed. Provider strings are trimmed,
+  stripped of control characters and length-capped, and at most 200 events are
+  returned.
+- A success body whose `reference_no` is not the requested AWB is rejected with
+  `JEEBLY_TRACKING_INVALID`, so another customer's shipment can never be shown
+  under this order.
+
+### Error codes
+
+| HTTP | `code` | Meaning |
+| --- | --- | --- |
+| 404 | — | sub-order not found for this vendor |
+| 409 | `SHIPMENT_NOT_CREATED` | no AWB yet; call ready-for-pickup first |
+| 502 | `JEEBLY_UNKNOWN_SHIPMENT` | Jeebly did not recognise the stored AWB. The demo host phrases this "Invalid Customer Key Or Shipment Number", so the shared classifier now checks the shipment-number wording before the credential wording. If every AWB fails this way, check the credentials |
+| 502 | `JEEBLY_AUTH_REJECTED` | credentials rejected ("Invalid API Token" / "Invalid Customer Key" alone) |
+| 502 | `JEEBLY_PAYLOAD_REJECTED` / `JEEBLY_REJECTED` | Jeebly refused the request for another reason |
+| 502 | `JEEBLY_TRACKING_INVALID` | body was not JSON, had no `Tracking`, described a different AWB, or carried no status |
+| 502 | `JEEBLY_UNREACHABLE` | network failure before a response |
+| 503 | `JEEBLY_NOT_CONFIGURED` | credentials or base URL missing |
+| 504 | `JEEBLY_TIMEOUT` | no response within 15 s |
+
+Provider messages are never echoed; only these fixed codes are emitted.
+
+### Verified behaviour
+
+Both outcomes were exercised against the demo host on 2026-09-11 with the
+project's configured demo credentials. The call is read-only.
+
+- Success: shipment SUB-LLK-148223-4 (AWB JB114728) returned HTTP 200 with
+  `Content-Type: application/json; charset=utf-8`, `last_status` of
+  `Pickup Scheduled` in Title Case, `booking_time` with a trailing space, empty
+  strings rather than `null` for absent values, and two `Pickup Scheduled`
+  events four seconds apart in oldest-first order. The API relays this as
+  `lastStatus: "pickup_scheduled"`, `bookingTime: "10:46"`, `null` for the
+  empty fields, and the events newest first. That recorded body is a fixture
+  in `jeebly.service.spec.ts`.
+- Failure: an unknown AWB returned HTTP 400 with
+  `{"success":"false","message":"Invalid Customer Key Or Shipment Number"}`,
+  which the API maps to `JEEBLY_UNKNOWN_SHIPMENT`.
+
+To re-check by hand:
+
+```bash
+curl -sS -D - -X POST https://demo.jeebly.com/customer/track_shipment -H "X-API-KEY: $JEEBLY_API_KEY" -H "client_key: $JEEBLY_CLIENT_KEY" -H "Content-Type: application/json" -d '{"reference_number":"<AWB>"}'
+```
+
+### Not done here
+
+Tracking does not move the local sub-order between `ready`, `shipped` and
+`delivered`. That transition belongs with the webhook integration (see
+`SCHEDULED_WEBHOOK_DOC_V_1.0.9.pdf`) or a scheduled reconciliation job, so it
+is applied once from an authoritative event rather than whenever a vendor opens
+the tracking screen.

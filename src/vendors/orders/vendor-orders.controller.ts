@@ -2,13 +2,21 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Param,
   ParseUUIDPipe,
   Post,
   Query,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiProduces,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { AuthenticatedUser } from '../../auth/auth.types';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -108,5 +116,40 @@ export class VendorOrdersController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.orders.readyForPickup(user.id, id);
+  }
+
+  @Get(':id/label')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary:
+      'Download the Jeebly shipping label (PDF or image) for a booked sub-order. Requires an AWB, i.e. the order is ready or later.',
+  })
+  @ApiProduces('application/pdf', 'image/png', 'image/jpeg')
+  @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
+  async getLabel(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<StreamableFile> {
+    const label = await this.orders.getShippingLabel(user.id, id);
+    // StreamableFile is returned raw (the response interceptor passes it
+    // through) and Nest sets Content-Type, Content-Disposition and Length.
+    return new StreamableFile(label.data, {
+      type: label.contentType,
+      disposition: `inline; filename="${label.fileName}"`,
+      length: label.data.length,
+    });
+  }
+
+  @Get(':id/tracking')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary:
+      'Live Jeebly tracking for a booked sub-order: current courier status plus the event history, most recent first. Requires an AWB, i.e. the order is ready or later.',
+  })
+  getTracking(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.orders.getShipmentTracking(user.id, id);
   }
 }

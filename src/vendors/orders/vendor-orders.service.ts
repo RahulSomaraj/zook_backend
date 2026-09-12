@@ -491,6 +491,82 @@ export class VendorOrdersService {
     );
   }
 
+  /**
+   * Printable courier label for a booked sub-order. Jeebly renders the label
+   * from the AWB, so the only precondition is that the shipment exists. The
+   * call is read-only on the provider side and safe to repeat for reprints,
+   * so no claim row is taken and no status history is written.
+   */
+  async getShippingLabel(userId: string, subOrderId: string) {
+    const vendorId = await this.getVendorId(userId);
+    const subOrder = await this.prisma.subOrder.findFirst({
+      where: { id: subOrderId, vendorId },
+      select: { subOrderNumber: true, status: true, awbNumber: true },
+    });
+    if (!subOrder) {
+      throw new NotFoundException('Sub-order not found');
+    }
+    if (!subOrder.awbNumber) {
+      throw new ConflictException({
+        code: 'SHIPMENT_NOT_CREATED',
+        message: 'Mark the order ready for pickup before printing a label',
+      });
+    }
+    if (subOrder.status === OrderStatus.cancelled) {
+      throw new ConflictException('Cannot print a label for a cancelled order');
+    }
+
+    const label = await this.jeebly.generateShipmentLabel(subOrder.awbNumber);
+    // Both parts are validated on write, but never let them shape a header.
+    const safe = (value: string) => value.replace(/[^A-Za-z0-9._-]/g, '_');
+    return {
+      ...label,
+      fileName: `${safe(subOrder.subOrderNumber)}-${safe(subOrder.awbNumber)}.${label.extension}`,
+    };
+  }
+
+  /**
+   * Live courier status for a booked sub-order, straight from Jeebly. Nothing
+   * is written: the local status stays owned by the fulfilment endpoints, and
+   * the provider call is read-only, so the vendor app may poll this freely.
+   * Cancelled orders stay trackable, so a vendor can see what became of a
+   * parcel after the fact.
+   */
+  async getShipmentTracking(userId: string, subOrderId: string) {
+    const vendorId = await this.getVendorId(userId);
+    const subOrder = await this.prisma.subOrder.findFirst({
+      where: { id: subOrderId, vendorId },
+      select: {
+        subOrderNumber: true,
+        status: true,
+        courierName: true,
+        awbNumber: true,
+      },
+    });
+    if (!subOrder) {
+      throw new NotFoundException('Sub-order not found');
+    }
+    if (!subOrder.awbNumber) {
+      throw new ConflictException({
+        code: 'SHIPMENT_NOT_CREATED',
+        message: 'Mark the order ready for pickup before tracking the shipment',
+      });
+    }
+
+    const tracking = await this.jeebly.trackShipment(subOrder.awbNumber);
+    return {
+      subOrderNumber: subOrder.subOrderNumber,
+      status: subOrder.status,
+      courierName: subOrder.courierName,
+      awbNumber: subOrder.awbNumber,
+      lastStatus: tracking.lastStatus,
+      pickupDate: tracking.pickupDate,
+      bookingDate: tracking.bookingDate,
+      bookingTime: tracking.bookingTime,
+      events: tracking.events,
+    };
+  }
+
   private shipmentReconciliationConflict() {
     return new ConflictException({
       code: 'SHIPMENT_RECONCILIATION_REQUIRED',

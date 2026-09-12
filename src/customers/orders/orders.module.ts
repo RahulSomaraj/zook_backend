@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '../../database/prisma.module';
+import { JeeblyModule } from '../../integrations/jeebly/jeebly.module';
 import { PhoneVerifiedGuard } from '../../auth/guards/phone-verified.guard';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 
 @Module({
-  imports: [PrismaModule, ConfigModule],
+  imports: [PrismaModule, ConfigModule, JeeblyModule],
   controllers: [OrdersController],
   providers: [OrdersService, PhoneVerifiedGuard],
 })
