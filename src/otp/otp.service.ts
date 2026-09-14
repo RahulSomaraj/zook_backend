@@ -9,8 +9,8 @@ import { TwilioVerifyProvider } from './providers/twilio-verify.provider';
 export type { IssuedOtp } from './providers/otp-provider.interface';
 
 /**
- * Facade over the OTP providers. Picks a provider per purpose from config
- * (customer vs vendor), enforces the per-phone Redis rate limit on send, and
+ * Facade over the OTP providers. Vendor Twilio routing is temporarily disabled
+ * for testing. Enforces the per-phone Redis rate limit on send and
  * normalizes the phone once at the boundary. Callers (customer/vendor auth)
  * keep the same `issue` / `verify` signatures as before — the strategy swap is
  * invisible to them.
@@ -70,14 +70,18 @@ export class OtpService {
     return this.providerFor(purpose).verify(phone, code, purpose);
   }
 
-  /** Map a purpose to its configured provider. Vendor is the safe default. */
+  /** Customer uses config; vendor SMS is temporarily disabled for testing. */
   private providerFor(purpose: string): OtpProvider {
     if (this.testMode) return this.local;
 
-    const name =
-      purpose === 'customer_auth'
-        ? this.customerProviderName
-        : this.vendorProviderName;
-    return name === 'twilio_verify' ? this.twilio : this.local;
+    if (purpose !== 'customer_auth') {
+      // Temporarily commented out for vendor OTP testing. Restore for SMS:
+      // return this.vendorProviderName === 'twilio_verify' ? this.twilio : this.local;
+      return this.local;
+    }
+
+    return this.customerProviderName === 'twilio_verify'
+      ? this.twilio
+      : this.local;
   }
 }

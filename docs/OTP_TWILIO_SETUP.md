@@ -53,8 +53,9 @@ Twilio credential is missing or malformed.
 
 ### Testing without SMS
 
-For vendor testing, set `OTP_VENDOR_PROVIDER=local` in the environment used by
-the backend and restart it. Customer OTP continues to use its configured provider.
+Vendor Twilio routing is temporarily commented out in `OtpService.providerFor`.
+Vendor send and verify always use the local provider, even if
+`OTP_VENDOR_PROVIDER=twilio_verify`. Customer OTP continues to use its configured provider.
 In a non-production environment, request an OTP with
 `POST /api/auth/vendor/otp/request` and a body such as
 `{ "phone": "+917544326781" }`. Read `data.devCode` from the response, then submit
@@ -67,9 +68,10 @@ Twilio credentials are unnecessary in this mode. `npm run start:local` already
 loads this setting from `.env.local`. Test mode is rejected when
 `NODE_ENV=production`, and production never returns `devCode`.
 
-For UAT, apply the setting to the UAT server environment and restart the backend;
-changing the local `.env` does not update UAT. Restore `OTP_VENDOR_PROVIDER=twilio_verify`
-and `OTP_TEST_MODE=false` to resume vendor SMS delivery.
+For UAT, deploy this code change and restart the backend; local edits do not
+update UAT. To resume vendor SMS, restore the commented return statement in
+`OtpService.providerFor`, remove the vendor branch's unconditional local return,
+and set `OTP_VENDOR_PROVIDER=twilio_verify` and `OTP_TEST_MODE=false`.
 
 ### SMS configuration
 
