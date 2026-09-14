@@ -31,6 +31,18 @@ export class TwilioVerifyProvider implements OtpProvider, OnModuleInit {
   constructor(private readonly config: ConfigService) {}
 
   onModuleInit(): void {
+    const testMode = this.config.get<boolean>('otp.testMode') ?? false;
+    const customerProvider =
+      this.config.get<string>('otp.customerProvider') ?? 'twilio_verify';
+    const vendorProvider =
+      this.config.get<string>('otp.vendorProvider') ?? 'local';
+    if (
+      testMode ||
+      (customerProvider !== this.name && vendorProvider !== this.name)
+    ) {
+      return;
+    }
+
     const accountSid = this.config.get<string>('twilio.accountSid');
     const authToken = this.config.get<string>('twilio.authToken');
     this.serviceSid = this.config.get<string>('twilio.verifyServiceSid') ?? '';

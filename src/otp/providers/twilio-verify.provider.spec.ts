@@ -1,14 +1,15 @@
-import { ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TwilioVerifyProvider } from './twilio-verify.provider';
 
-function makeConfig(): ConfigService {
+function makeConfig(overrides: Record<string, unknown> = {}): ConfigService {
   const values: Record<string, unknown> = {
     'twilio.accountSid': 'AC' + '0'.repeat(32),
     'twilio.authToken': 'secret-token',
     'twilio.verifyServiceSid': 'VA' + '0'.repeat(32),
     'twilio.verifyTtlSeconds': 600,
     'twilio.timeoutMs': 8000,
+    ...overrides,
   };
   return { get: (k: string) => values[k] } as unknown as ConfigService;
 }
@@ -35,6 +36,47 @@ function providerWith(fake: {
 
 describe('TwilioVerifyProvider', () => {
   const phone = '+971501234567';
+
+  const noCredentials = {
+    'twilio.accountSid': '',
+    'twilio.authToken': '',
+    'twilio.verifyServiceSid': '',
+  };
+
+  it('starts without Twilio credentials in OTP test mode', () => {
+    const provider = new TwilioVerifyProvider(
+      makeConfig({ ...noCredentials, 'otp.testMode': true }),
+    );
+    expect(() => provider.onModuleInit()).not.toThrow();
+  });
+
+  it('starts without Twilio credentials when both providers are local', () => {
+    const provider = new TwilioVerifyProvider(
+      makeConfig({
+        ...noCredentials,
+        'otp.customerProvider': 'local',
+        'otp.vendorProvider': 'local',
+      }),
+    );
+    expect(() => provider.onModuleInit()).not.toThrow();
+  });
+
+  it.each(['customer', 'vendor'])(
+    'requires credentials when the %s provider uses Twilio',
+    (audience) => {
+      const provider = new TwilioVerifyProvider(
+        makeConfig({
+          ...noCredentials,
+          'otp.customerProvider': 'local',
+          'otp.vendorProvider': 'local',
+          [`otp.${audience}Provider`]: 'twilio_verify',
+        }),
+      );
+      expect(() => provider.onModuleInit()).toThrow(
+        'TwilioVerifyProvider selected but Twilio credentials are incomplete.',
+      );
+    },
+  );
 
   it('issue() returns the configured TTL and never a devCode', async () => {
     const provider = providerWith({
@@ -87,6 +129,6 @@ describe('TwilioVerifyProvider', () => {
     });
     await expect(
       provider.issue(phone, 'customer_auth'),
-    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

@@ -51,6 +51,28 @@ Twilio credential is missing or malformed.
 
 ## 3. Twilio console configuration (do these in the Verify service)
 
+### Testing without SMS
+
+For vendor testing, set `OTP_VENDOR_PROVIDER=local` in the environment used by
+the backend and restart it. Customer OTP continues to use its configured provider.
+In a non-production environment, request an OTP with
+`POST /api/auth/vendor/otp/request` and a body such as
+`{ "phone": "+917544326781" }`. Read `data.devCode` from the response, then submit
+that code and the same phone to `POST /api/auth/vendor/otp/verify`.
+The code is random, expires after `OTP_TTL_SECONDS` (default 300 seconds), and
+still uses normal verification and resend limits. No vendor SMS is sent.
+
+To test both customer and vendor OTP without Twilio, set `OTP_TEST_MODE=true`.
+Twilio credentials are unnecessary in this mode. `npm run start:local` already
+loads this setting from `.env.local`. Test mode is rejected when
+`NODE_ENV=production`, and production never returns `devCode`.
+
+For UAT, apply the setting to the UAT server environment and restart the backend;
+changing the local `.env` does not update UAT. Restore `OTP_VENDOR_PROVIDER=twilio_verify`
+and `OTP_TEST_MODE=false` to resume vendor SMS delivery.
+
+### SMS configuration
+
 1. **Verify → Services → your service:** set **Code length = 6**, channel SMS.
 2. Enable **Fraud Guard** (blocks SMS-pumping / toll-fraud number ranges).
 3. Set **Geo-permissions** to only the countries you serve (UAE + others as
