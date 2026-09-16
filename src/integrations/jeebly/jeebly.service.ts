@@ -1,5 +1,6 @@
 import {
   BadGatewayException,
+  ConflictException,
   GatewayTimeoutException,
   Injectable,
   Logger,
@@ -10,6 +11,7 @@ import type {
   JeeblyCreateShipmentRequest,
   JeeblyLabelContentType,
   JeeblyShipment,
+  JeeblyShipmentCancellation,
   JeeblyShipmentLabel,
   JeeblyShipmentTracking,
   JeeblyTrackingEvent,
@@ -258,6 +260,100 @@ export class JeeblyService {
       });
     }
     return { awbNumber, message: 'Created Successfully.' };
+  }
+
+  /**
+   * Cancel a booked shipment before Jeebly has completed pickup. Jeebly treats
+   * a repeat cancellation as an error, but "already cancelled" is the desired
+   * end state, so this method normalises that response into an idempotent
+   * success. Unknown transport outcomes are safe for callers to retry for the
+   * same reason; this method never retries the POST by itself.
+   */
+  async cancelShipment(awbNumber: string): Promise<JeeblyShipmentCancellation> {
+    const { baseUrl, apiKey, clientKey } = this.getConfiguration();
+    const signal = AbortSignal.timeout(15_000);
+    let response: Response;
+    let data: unknown;
+    let received = false;
+
+    try {
+      response = await fetch(`${baseUrl}/customer/cancel_shipment`, {
+        method: 'POST',
+        headers: this.headers(apiKey, clientKey),
+        body: JSON.stringify({ reference_number: awbNumber }),
+        signal,
+        // Never forward credentials to a redirect target or retry the POST.
+        redirect: 'error',
+      });
+      received = true;
+      data = await response.json();
+    } catch (error: unknown) {
+      const timeout =
+        signal.aborted ||
+        (error instanceof Error && error.name === 'TimeoutError');
+      const code = timeout
+        ? 'JEEBLY_TIMEOUT'
+        : received
+          ? 'JEEBLY_CANCELLATION_INVALID'
+          : 'JEEBLY_UNREACHABLE';
+      this.logger.warn(`${code} cancellation`);
+      const body = {
+        code,
+        message: timeout
+          ? 'Jeebly cancellation timed out. Retry the same cancellation request.'
+          : received
+            ? 'Jeebly returned an unreadable cancellation response. Retry the same request.'
+            : 'Jeebly could not be reached for cancellation. Retry the same request.',
+      };
+      if (timeout) throw new GatewayTimeoutException(body);
+      throw new BadGatewayException(body);
+    }
+
+    const result =
+      data !== null && typeof data === 'object'
+        ? (data as Record<string, unknown>)
+        : {};
+    const success =
+      typeof result.success === 'string' || typeof result.success === 'boolean'
+        ? String(result.success).toLowerCase() === 'true'
+        : false;
+    const message =
+      typeof result.message === 'string' ? result.message.toLowerCase() : '';
+
+    if (response.ok && success) {
+      return { awbNumber, alreadyCancelled: false };
+    }
+
+    // Jeebly returns HTTP 400 for this repeat request. Treat it as success so
+    // a timeout followed by a retry can reconcile local state safely.
+    if (message.includes('already cancelled')) {
+      return { awbNumber, alreadyCancelled: true };
+    }
+
+    if (message.includes('cannot be cancelled')) {
+      this.logger.warn(
+        `JEEBLY_CANCELLATION_WINDOW_CLOSED HTTP ${response.status} cancellation`,
+      );
+      throw new ConflictException({
+        code: 'JEEBLY_CANCELLATION_WINDOW_CLOSED',
+        message:
+          'The shipment has already been picked up or is out for delivery.',
+      });
+    }
+
+    const failure = this.classifyFailure(result.message);
+    const code =
+      failure.code === 'JEEBLY_REJECTED'
+        ? 'JEEBLY_CANCELLATION_REJECTED'
+        : failure.code;
+    this.logger.warn(`${code} HTTP ${response.status} cancellation`);
+    throw new BadGatewayException({
+      code,
+      message:
+        code === 'JEEBLY_CANCELLATION_REJECTED'
+          ? 'Jeebly rejected the shipment cancellation.'
+          : failure.message,
+    });
   }
 
   /**

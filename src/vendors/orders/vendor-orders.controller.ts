@@ -3,6 +3,8 @@ import {
   Controller,
   Get,
   Header,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Post,
@@ -116,6 +118,19 @@ export class VendorOrdersController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.orders.readyForPickup(user.id, id);
+  }
+
+  @Post(':id/cancel-shipment')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Cancel a booked Jeebly shipment before courier pickup and mark the sub-order cancelled.',
+  })
+  cancelShipment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.orders.cancelShipment(user.id, id);
   }
 
   @Get(':id/label')

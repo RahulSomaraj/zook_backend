@@ -17,6 +17,7 @@ import { ShipmentDataService } from './shipment-data.service';
 const jeeblyMock = {
   createShipment: jest.fn(),
   assertConfigured: jest.fn(),
+  cancelShipment: jest.fn(),
   generateShipmentLabel: jest.fn(),
   trackShipment: jest.fn(),
 };
@@ -36,6 +37,7 @@ const prismaMock = {
 const transactionMock = {
   subOrder: {
     updateMany: jest.fn(),
+    findUnique: jest.fn(),
     findUniqueOrThrow: jest.fn(),
   },
   subOrderStatusHistory: {
@@ -562,6 +564,172 @@ describe('VendorOrdersService', () => {
       ).not.toHaveBeenCalled();
     });
   });
+  describe('cancelShipment', () => {
+    const booked = {
+      id: SUB_ORDER_ID,
+      status: OrderStatus.ready,
+      awbNumber: 'JB304362',
+    };
+    const cancelled = {
+      ...booked,
+      status: OrderStatus.cancelled,
+      cancelledAt: new Date('2026-09-15T10:00:00.000Z'),
+    };
+    const call = () =>
+      service
+        .cancelShipment(USER_ID, SUB_ORDER_ID)
+        .catch((caught: unknown) => caught);
+
+    beforeEach(() => {
+      prismaMock.subOrder.findFirst.mockResolvedValue(booked);
+      jeeblyMock.cancelShipment.mockResolvedValue({
+        awbNumber: booked.awbNumber,
+        alreadyCancelled: false,
+      });
+      transactionMock.subOrder.updateMany.mockResolvedValue({ count: 1 });
+      transactionMock.subOrder.findUniqueOrThrow.mockResolvedValue(cancelled);
+      transactionMock.subOrderStatusHistory.create.mockResolvedValue({});
+    });
+
+    it('cancels the stored AWB and atomically records local cancellation', async () => {
+      await expect(
+        service.cancelShipment(USER_ID, SUB_ORDER_ID),
+      ).resolves.toEqual(cancelled);
+
+      expect(prismaMock.subOrder.findFirst).toHaveBeenCalledWith({
+        where: { id: SUB_ORDER_ID, vendorId: VENDOR_ID },
+        select: { id: true, status: true, awbNumber: true },
+      });
+      expect(jeeblyMock.cancelShipment).toHaveBeenCalledWith('JB304362');
+      expect(transactionMock.subOrder.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: SUB_ORDER_ID,
+          vendorId: VENDOR_ID,
+          status: OrderStatus.ready,
+          awbNumber: 'JB304362',
+        },
+        data: {
+          status: OrderStatus.cancelled,
+          cancelledAt: expect.any(Date) as unknown,
+        },
+      });
+      expect(transactionMock.subOrderStatusHistory.create).toHaveBeenCalledWith(
+        {
+          data: {
+            subOrderId: SUB_ORDER_ID,
+            status: OrderStatus.cancelled,
+            actorId: USER_ID,
+            note: 'Jeebly shipment JB304362 cancelled',
+          },
+        },
+      );
+    });
+
+    it('is locally idempotent once the sub-order is cancelled', async () => {
+      prismaMock.subOrder.findFirst.mockResolvedValue(cancelled);
+
+      await expect(
+        service.cancelShipment(USER_ID, SUB_ORDER_ID),
+      ).resolves.toEqual(cancelled);
+      expect(jeeblyMock.cancelShipment).not.toHaveBeenCalled();
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("returns 404 for a sub-order that is not the vendor's", async () => {
+      prismaMock.subOrder.findFirst.mockResolvedValue(null);
+
+      expect(await call()).toBeInstanceOf(NotFoundException);
+      expect(jeeblyMock.cancelShipment).not.toHaveBeenCalled();
+    });
+
+    it('returns 409 before a Jeebly shipment exists', async () => {
+      prismaMock.subOrder.findFirst.mockResolvedValue({
+        ...booked,
+        status: OrderStatus.preparing,
+        awbNumber: null,
+      });
+
+      const error = await call();
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as ConflictException).getResponse()).toMatchObject({
+        code: 'SHIPMENT_NOT_CREATED',
+      });
+      expect(jeeblyMock.cancelShipment).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      OrderStatus.confirmed,
+      OrderStatus.preparing,
+      OrderStatus.shipped,
+      OrderStatus.delivered,
+    ])('rejects local status %s', async (status) => {
+      prismaMock.subOrder.findFirst.mockResolvedValue({ ...booked, status });
+
+      const error = await call();
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as ConflictException).getResponse()).toMatchObject({
+        code: 'ORDER_CANNOT_BE_CANCELLED',
+      });
+      expect(jeeblyMock.cancelShipment).not.toHaveBeenCalled();
+    });
+
+    it('does not change local state when Jeebly rejects cancellation', async () => {
+      jeeblyMock.cancelShipment.mockRejectedValue(
+        new ConflictException({
+          code: 'JEEBLY_CANCELLATION_WINDOW_CLOSED',
+        }),
+      );
+
+      const error = await call();
+      expect(error).toBeInstanceOf(ConflictException);
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(transactionMock.subOrder.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('accepts a concurrent request that already committed cancellation', async () => {
+      transactionMock.subOrder.updateMany.mockResolvedValue({ count: 0 });
+      transactionMock.subOrder.findUnique.mockResolvedValue(cancelled);
+
+      await expect(
+        service.cancelShipment(USER_ID, SUB_ORDER_ID),
+      ).resolves.toEqual(cancelled);
+      expect(
+        transactionMock.subOrderStatusHistory.create,
+      ).not.toHaveBeenCalled();
+      expect(transactionMock.subOrder.findUniqueOrThrow).not.toHaveBeenCalled();
+    });
+
+    it('requires reconciliation when another local transition wins', async () => {
+      transactionMock.subOrder.updateMany.mockResolvedValue({ count: 0 });
+      transactionMock.subOrder.findUnique.mockResolvedValue({
+        ...booked,
+        status: OrderStatus.shipped,
+      });
+
+      const error = await call();
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as ConflictException).getResponse()).toMatchObject({
+        code: 'CANCELLATION_RECONCILIATION_REQUIRED',
+      });
+      expect(
+        transactionMock.subOrderStatusHistory.create,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('reports a retriable error when the local transaction fails', async () => {
+      prismaMock.$transaction.mockRejectedValue(new Error('database offline'));
+
+      const error = await call();
+      expect(error).toBeInstanceOf(ServiceUnavailableException);
+      expect(
+        (error as ServiceUnavailableException).getResponse(),
+      ).toMatchObject({
+        code: 'CANCELLATION_LOCAL_UPDATE_FAILED',
+      });
+      expect(jeeblyMock.cancelShipment).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('getShippingLabel', () => {
     const label = {
       data: Buffer.from('%PDF-1.4'),

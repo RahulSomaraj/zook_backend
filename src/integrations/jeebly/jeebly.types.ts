@@ -81,3 +81,8 @@ export interface JeeblyShipmentTracking {
   /** Most recent first, as Jeebly returns them. */
   events: JeeblyTrackingEvent[];
 }
+
+export interface JeeblyShipmentCancellation {
+  awbNumber: string;
+  alreadyCancelled: boolean;
+}

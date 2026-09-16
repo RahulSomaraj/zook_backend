@@ -526,6 +526,97 @@ export class VendorOrdersService {
   }
 
   /**
+   * Cancel a booked Jeebly shipment and then commit the matching local state.
+   * The AWB always comes from the vendor-scoped database lookup rather than
+   * from client input. Jeebly's "already cancelled" response is normalised by
+   * the integration service, so retrying after an uncertain outcome repairs a
+   * missed local commit without issuing a new kind of provider operation.
+   */
+  async cancelShipment(userId: string, subOrderId: string) {
+    const vendorId = await this.getVendorId(userId);
+    const subOrder = await this.prisma.subOrder.findFirst({
+      where: { id: subOrderId, vendorId },
+      select: { id: true, status: true, awbNumber: true },
+    });
+    if (!subOrder) {
+      throw new NotFoundException('Sub-order not found');
+    }
+    if (subOrder.status === OrderStatus.cancelled) {
+      return subOrder;
+    }
+    if (!subOrder.awbNumber) {
+      throw new ConflictException({
+        code: 'SHIPMENT_NOT_CREATED',
+        message: 'This order does not have a Jeebly shipment',
+      });
+    }
+    if (subOrder.status !== OrderStatus.ready) {
+      throw new ConflictException({
+        code: 'ORDER_CANNOT_BE_CANCELLED',
+        message: `Cannot cancel an order in "${subOrder.status}" status`,
+      });
+    }
+
+    await this.jeebly.cancelShipment(subOrder.awbNumber);
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const changed = await tx.subOrder.updateMany({
+          where: {
+            id: subOrderId,
+            vendorId,
+            status: OrderStatus.ready,
+            awbNumber: subOrder.awbNumber,
+          },
+          data: {
+            status: OrderStatus.cancelled,
+            cancelledAt: new Date(),
+          },
+        });
+
+        if (changed.count !== 1) {
+          // A concurrent identical request may have completed while this one
+          // was waiting for Jeebly. Return that already-achieved local state.
+          const latest = await tx.subOrder.findUnique({
+            where: { id: subOrderId },
+          });
+          if (latest?.status === OrderStatus.cancelled) return latest;
+
+          throw new ConflictException({
+            code: 'CANCELLATION_RECONCILIATION_REQUIRED',
+            message:
+              'Jeebly cancelled the shipment, but the local order changed concurrently. Retry the cancellation.',
+          });
+        }
+
+        await tx.subOrderStatusHistory.create({
+          data: {
+            subOrderId,
+            status: OrderStatus.cancelled,
+            actorId: userId,
+            note: `Jeebly shipment ${subOrder.awbNumber} cancelled`,
+          },
+        });
+        return tx.subOrder.findUniqueOrThrow({ where: { id: subOrderId } });
+      });
+    } catch (error: unknown) {
+      if (error instanceof ConflictException) throw error;
+      this.logger.error(
+        JSON.stringify({
+          code: 'JEEBLY_CANCELLATION_LOCAL_COMMIT_FAILED',
+          subOrderId,
+          awbNumber: subOrder.awbNumber,
+        }),
+      );
+      throw new ServiceUnavailableException({
+        code: 'CANCELLATION_LOCAL_UPDATE_FAILED',
+        message:
+          'Jeebly cancelled the shipment, but the local order update failed. Retry the same cancellation request.',
+      });
+    }
+  }
+
+  /**
    * Live courier status for a booked sub-order, straight from Jeebly. Nothing
    * is written: the local status stays owned by the fulfilment endpoints, and
    * the provider call is read-only, so the vendor app may poll this freely.
