@@ -327,4 +327,18 @@ export class VendorsService {
     if (!vendor) throw new NotFoundException('Vendor profile not found');
     return vendor;
   }
+
+  public async getTradeEmirtesExpiry(userId: string) {
+    const vendor = await this.findVendorOrThrow(userId);
+    const expiryDates = await this.prisma.vendorKyc.findFirst({
+      where: { vendorId: vendor.id },
+      orderBy: { createdAt: 'desc' },
+      select: { tradeLicenseExpiry: true, emiratesIdExpiry: true },
+    });
+
+    return {
+      tradeLicenseExpiry: expiryDates?.tradeLicenseExpiry ?? null,
+      emiratesIdExpiry: expiryDates?.emiratesIdExpiry ?? null,
+    };
+  }
 }

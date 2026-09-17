@@ -24,6 +24,12 @@ export class VendorsController {
     return this.vendors.getMe(user.id);
   }
 
+  @Get('me/kyc/expiry')
+  @ApiOperation({ summary: 'Trade license and Emirates ID expiry dates' })
+  getTradeEmirtesExpiry(@CurrentUser() user: AuthenticatedUser) {
+    return this.vendors.getTradeEmirtesExpiry(user.id);
+  }
+
   @Get('me/dashboard')
   @ApiOperation({
     summary: 'Home dashboard summary (orders today, live listings, month revenue)',

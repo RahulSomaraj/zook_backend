@@ -636,6 +636,7 @@ model SubOrder {
   product          Product                 @relation(fields: [productId], references: [id])
   statusHistory    SubOrderStatusHistory[]
   shipmentCreation ShipmentCreation?
+  shipmentEvents   ShipmentEvent[]
 
   @@index([status])
   @@index([vendorId])
@@ -669,6 +670,26 @@ model SubOrderStatusHistory {
 
   @@index([subOrderId])
   @@map("sub_order_status_history")
+}
+
+// Jeebly's detailed tracking events. eventKey deduplicates retries because the
+// webhook payload has no provider event ID.
+model ShipmentEvent {
+  id            String   @id @default(uuid()) @db.Uuid
+  subOrderId    String   @map("sub_order_id") @db.Uuid
+  eventKey      String   @unique @map("event_key")
+  awbNumber     String   @map("awb_number")
+  status        String
+  description   String?
+  hubName       String?  @map("hub_name")
+  failureReason String?  @map("failure_reason")
+  occurredAt    DateTime @map("occurred_at")
+  receivedAt    DateTime @default(now()) @map("received_at")
+
+  subOrder SubOrder @relation(fields: [subOrderId], references: [id], onDelete: Cascade)
+
+  @@index([subOrderId, occurredAt])
+  @@map("shipment_events")
 }
 
 // ── Refresh token store ────────────────────────────────────────────────
