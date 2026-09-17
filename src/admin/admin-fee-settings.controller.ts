@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -21,6 +22,16 @@ import { SetFeeSettingsDto } from './dto/set-fee-settings.dto';
 @Controller('admin/fee-settings')
 export class AdminFeeSettingsController {
   constructor(private readonly fees: AdminFeeSettingsService) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'Get the current commission and Mamo fee percentages',
+    description:
+      'Returns both fees as percentages (for example, 10 and 2.9). Returns 404 if settings have not been configured.',
+  })
+  getFees() {
+    return this.fees.getFees();
+  }
 
   @Post()
   @HttpCode(HttpStatus.OK)

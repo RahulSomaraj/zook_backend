@@ -15,13 +15,17 @@ import { AdminFeeSettingsService } from './admin-fee-settings.service';
 describe('Admin fee settings endpoint', () => {
   let app: INestApplication;
   const upsert = jest.fn();
+  const findUnique = jest.fn();
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [AdminFeeSettingsController],
       providers: [
         AdminFeeSettingsService,
-        { provide: PrismaService, useValue: { feeSettings: { upsert } } },
+        {
+          provide: PrismaService,
+          useValue: { feeSettings: { upsert, findUnique } },
+        },
       ],
     })
       // Substitute authentication only; the real RolesGuard must authorize
@@ -52,6 +56,13 @@ describe('Admin fee settings endpoint', () => {
 
   beforeEach(() => {
     upsert.mockReset();
+    findUnique.mockReset();
+    findUnique.mockResolvedValue({
+      id: 1,
+      commissionRate: new Prisma.Decimal(10),
+      mamoFeeRate: new Prisma.Decimal('0.029'),
+      updatedAt: new Date('2026-09-17T12:00:00Z'),
+    });
     upsert.mockImplementation(async ({ where, update }) => ({
       id: where.id,
       ...update,
@@ -64,6 +75,47 @@ describe('Admin fee settings endpoint', () => {
   });
 
   const validBody = { commissionPercentage: 10, mamoPercentage: 2.9 };
+
+  it('reads saved fees as percentages without modifying settings', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/admin/fee-settings')
+      .set('Authorization', 'Bearer admin')
+      .expect(200);
+    expect(response.body).toEqual({
+      id: 1,
+      ...validBody,
+      updatedAt: '2026-09-17T12:00:00.000Z',
+    });
+    expect(findUnique).toHaveBeenCalledWith({ where: { id: 1 } });
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when fee settings are missing', async () => {
+    findUnique.mockResolvedValue(null);
+    await request(app.getHttpServer())
+      .get('/api/admin/fee-settings')
+      .set('Authorization', 'Bearer admin')
+      .expect(404);
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it.each(['vendor', 'customer', 'inspector'])(
+    'rejects reads by the %s role',
+    async (role) => {
+      await request(app.getHttpServer())
+        .get('/api/admin/fee-settings')
+        .set('Authorization', `Bearer ${role}`)
+        .expect(403);
+      expect(findUnique).not.toHaveBeenCalled();
+    },
+  );
+
+  it('requires authentication to read fees', async () => {
+    await request(app.getHttpServer())
+      .get('/api/admin/fee-settings')
+      .expect(401);
+    expect(findUnique).not.toHaveBeenCalled();
+  });
 
   it('accepts percentages and writes the singleton with Mamo stored as a fraction', async () => {
     const response = await request(app.getHttpServer())

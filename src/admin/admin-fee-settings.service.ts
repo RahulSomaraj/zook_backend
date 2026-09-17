@@ -1,11 +1,25 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { FeeSettings, Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { SetFeeSettingsDto } from './dto/set-fee-settings.dto';
 
 @Injectable()
 export class AdminFeeSettingsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async getFees() {
+    const settings = await this.prisma.feeSettings.findUnique({
+      where: { id: 1 },
+    });
+    if (!settings) {
+      throw new NotFoundException('Fee settings have not been configured');
+    }
+    return this.toResponse(settings);
+  }
 
   async setFees(dto: SetFeeSettingsDto) {
     const commissionRate = new Prisma.Decimal(dto.commissionPercentage);
@@ -26,6 +40,10 @@ export class AdminFeeSettingsService {
       update: data,
     });
 
+    return this.toResponse(settings);
+  }
+
+  private toResponse(settings: FeeSettings) {
     return {
       id: settings.id,
       commissionPercentage: settings.commissionRate.toNumber(),
