@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { AdminFeeSettingsController } from './admin-fee-settings.controller';
+import { AdminFeeSettingsService } from './admin-fee-settings.service';
 import { AdminBrandsController } from './admin-brands.controller';
 import { AdminBrandsService } from './admin-brands.service';
 import { AdminCatalogController } from './admin-catalog.controller';
@@ -23,6 +25,7 @@ import { AdminVendorsService } from './admin-vendors.service';
 
 @Module({
   controllers: [
+    AdminFeeSettingsController,
     AdminKycController,
     AdminOrdersController,
     AdminPoliciesController,
@@ -36,6 +39,7 @@ import { AdminVendorsService } from './admin-vendors.service';
     AdminCountriesController,
   ],
   providers: [
+    AdminFeeSettingsService,
     AdminKycService,
     AdminOrdersService,
     AdminPoliciesService,

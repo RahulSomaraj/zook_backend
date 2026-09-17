@@ -577,6 +577,21 @@ model CustomerAddress {
   @@map("customer_addresses")
 }
 
+// Platform fee configuration. The migration restricts this to one row (id = 1)
+// and validates the rate ranges. Storage only: checkout currently still reads
+// MAMO_FEE_RATE and Vendor.commissionRate until wired to these settings.
+model FeeSettings {
+  id             Int      @id @default(1)
+  // Fraction: 0.029 = 2.9%, matching payments.mamoFeeRate.
+  mamoFeeRate    Decimal  @default(0.029) @map("mamo_fee_rate") @db.Decimal(7, 6)
+  // Percentage: 10 = 10%, matching Vendor.commissionRate.
+  commissionRate Decimal  @default(10.0) @map("commission_rate") @db.Decimal(5, 2)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("fee_settings")
+}
+
 model Order {
   id                  String        @id @default(uuid()) @db.Uuid
   orderNumber         String        @unique @map("order_number") // human ref e.g. ORD-041

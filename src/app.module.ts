@@ -28,6 +28,7 @@ import { CountriesModule } from './countries/countries.module';
 import { PoliciesModule } from './policies/policies.module';
 import { CustomerSettingsModule } from './customers/settings/customer-settings.module';
 import { CategorySpecificationsModule } from './category_specifications/category_specifications.module';
+import { VendorFeeCalModule } from './vendors/vendor.fee.cal/vendor.fee.cal.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { CategorySpecificationsModule } from './category_specifications/category
     PoliciesModule,
     CustomerSettingsModule,
     CategorySpecificationsModule,
+    VendorFeeCalModule,
   ],
   controllers: [AppController],
   providers: [
