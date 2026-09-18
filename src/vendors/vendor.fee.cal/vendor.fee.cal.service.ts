@@ -10,6 +10,27 @@ import { PrismaService } from '../../database/prisma.service';
 export class VendorFeeCalService {
   constructor(private readonly prisma: PrismaService) {}
 
+  public async getFees() {
+    const settings = await this.prisma.feeSettings.findUnique({
+      where: { id: 1 },
+      select: {
+        id: true,
+        commissionRate: true,
+        mamoFeeRate: true,
+        updatedAt: true,
+      },
+    });
+    if (!settings) {
+      throw new NotFoundException('Fee settings have not been configured');
+    }
+    return {
+      id: settings.id,
+      commissionPercentage: settings.commissionRate.toNumber(),
+      mamoPercentage: settings.mamoFeeRate.mul(100).toNumber(),
+      updatedAt: settings.updatedAt,
+    };
+  }
+
   public async calculateFees(productId: string, userId: string) {
     const product = await this.prisma.product.findFirst({
       where: {

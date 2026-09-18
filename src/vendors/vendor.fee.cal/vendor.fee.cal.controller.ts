@@ -18,11 +18,21 @@ import { VendorFeeCalService } from './vendor.fee.cal.service';
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.VENDOR)
-@Controller('vendors/me/products')
+@Controller('vendors/me')
 export class VendorFeeCalController {
   constructor(private readonly vendorFeeCalService: VendorFeeCalService) {}
 
-  @Get(':productId/payout')
+  @Get('fee-settings')
+  @ApiOperation({
+    summary: 'Get the current platform commission and Mamo fee percentages',
+    description:
+      'Returns both fees as percentages (for example, 10 and 2.9). Returns 404 if settings have not been configured.',
+  })
+  getFees() {
+    return this.vendorFeeCalService.getFees();
+  }
+
+  @Get('products/:productId/payout')
   @ApiOperation({
     summary: 'Preview the vendor payout for one unit of an owned product',
     description:

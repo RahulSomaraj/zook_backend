@@ -55,14 +55,65 @@ describe('Vendor payout API', () => {
     jest.clearAllMocks();
     findProduct.mockResolvedValue({ price: new Prisma.Decimal('100') });
     findSettings.mockResolvedValue({
+      id: 1,
       commissionRate: new Prisma.Decimal('10'),
       mamoFeeRate: new Prisma.Decimal('0.029'),
+      updatedAt: new Date('2026-09-18T12:00:00Z'),
     });
   });
 
   afterAll(async () => {
     await app.close();
   });
+
+  it('lets vendors read platform fees as percentages without requiring a product', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/vendors/me/fee-settings')
+      .set('Authorization', 'Bearer vendor')
+      .expect(200);
+    expect(response.body).toEqual({
+      id: 1,
+      commissionPercentage: 10,
+      mamoPercentage: 2.9,
+      updatedAt: '2026-09-18T12:00:00.000Z',
+    });
+    expect(findSettings).toHaveBeenCalledWith({
+      where: { id: 1 },
+      select: {
+        id: true,
+        commissionRate: true,
+        mamoFeeRate: true,
+        updatedAt: true,
+      },
+    });
+    expect(findProduct).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the requested fee settings are missing', async () => {
+    findSettings.mockResolvedValue(null);
+    await request(app.getHttpServer())
+      .get('/api/vendors/me/fee-settings')
+      .set('Authorization', 'Bearer vendor')
+      .expect(404);
+  });
+
+  it('requires authentication to read fee settings', async () => {
+    await request(app.getHttpServer())
+      .get('/api/vendors/me/fee-settings')
+      .expect(401);
+    expect(findSettings).not.toHaveBeenCalled();
+  });
+
+  it.each(['customer', 'inspector', 'admin'])(
+    'rejects fee settings reads by the %s role',
+    async (role) => {
+      await request(app.getHttpServer())
+        .get('/api/vendors/me/fee-settings')
+        .set('Authorization', `Bearer ${role}`)
+        .expect(403);
+      expect(findSettings).not.toHaveBeenCalled();
+    },
+  );
 
   it('returns the decimal fee breakdown and scopes the product to the authenticated vendor', async () => {
     const response = await request(app.getHttpServer())
