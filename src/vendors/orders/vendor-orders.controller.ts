@@ -28,6 +28,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { AttachPackPhotoDto } from './dto/attach-pack-photo.dto';
 import { QueryVendorOrdersDto } from './dto/query-vendor-orders.dto';
 import { RecordPackageWeightDto } from './dto/record-package-weight.dto';
+import { VendorOrderTimelineDto } from './dto/vendor-order-timeline.dto';
 import { VendorOrdersService } from './vendor-orders.service';
 
 @ApiTags('vendor-orders')
@@ -56,6 +57,21 @@ export class VendorOrdersController {
   })
   recentOrders(@CurrentUser() user: AuthenticatedUser) {
     return this.orders.recentOrders(user.id);
+  }
+
+  @Get(':id/timeline')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary: 'Order timeline from confirmation through vendor payout',
+    description:
+      'Uses the vendor sub-order UUID. Returns ordered milestones from stored order and courier history, including pending, blocked and skipped steps. Unknown timestamps and unrecorded VCC email details are null. Does not call the courier or issue a payout.',
+  })
+  @ApiOkResponse({ type: VendorOrderTimelineDto })
+  getTimeline(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.orders.getTimeline(user.id, id);
   }
 
   @Post(':id/start-packing')

@@ -6,7 +6,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { OrderStatus, Prisma } from '@prisma/client';
+import { OrderStatus, PayoutStatus, Prisma } from '@prisma/client';
 import { buildMeta } from '../../common/dto/pagination.dto';
 import { PrismaService } from '../../database/prisma.service';
 import { JeeblyService } from '../../integrations/jeebly/jeebly.service';
@@ -14,6 +14,10 @@ import { ShipmentDataService, shipmentInclude } from './shipment-data.service';
 import { AttachPackPhotoDto } from './dto/attach-pack-photo.dto';
 import { QueryVendorOrdersDto } from './dto/query-vendor-orders.dto';
 import { RecordPackageWeightDto } from './dto/record-package-weight.dto';
+import {
+  OrderTimelineStepDto,
+  VendorOrderTimelineDto,
+} from './dto/vendor-order-timeline.dto';
 
 /**
  * Vendor-facing sub-order fulfillment. A SubOrder is one vendor's slice of a
@@ -49,6 +53,155 @@ export class VendorOrdersService {
     });
     if (!vendor) throw new NotFoundException('Vendor profile not found');
     return vendor.id;
+  }
+
+  async getTimeline(
+    userId: string,
+    subOrderId: string,
+  ): Promise<VendorOrderTimelineDto> {
+    const vendorId = await this.getVendorId(userId);
+    const order = await this.prisma.subOrder.findFirst({
+      where: { id: subOrderId, vendorId },
+      select: {
+        id: true,
+        subOrderNumber: true,
+        status: true,
+        createdAt: true,
+        photosVerifiedAt: true,
+        deliveredAt: true,
+        cancelledAt: true,
+        courierName: true,
+        payoutStatus: true,
+        payoutAmount: true,
+        statusHistory: {
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          select: { status: true, createdAt: true },
+        },
+        shipmentEvents: {
+          orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
+          select: { status: true, occurredAt: true },
+        },
+      },
+    });
+    if (!order) throw new NotFoundException('Sub-order not found');
+
+    const historyAt = (status: OrderStatus) =>
+      order.statusHistory.find((event) => event.status === status)?.createdAt ??
+      null;
+    const courierAt = (status: string) =>
+      order.shipmentEvents.find(
+        (event) =>
+          event.status
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim() === status,
+      )?.occurredAt ?? null;
+
+    const cancelled = order.status === OrderStatus.cancelled;
+    const deliveredAt =
+      order.deliveredAt ??
+      courierAt('delivered') ??
+      historyAt(OrderStatus.delivered);
+    // Only a pickup event gives an actual pickup time. A shipped history row
+    // can instead represent out-for-delivery, on-hold or another transit event.
+    const pickedUpAt = courierAt('pickup completed');
+    const delivered =
+      deliveredAt !== null || order.status === OrderStatus.delivered;
+    const pickedUp =
+      pickedUpAt !== null ||
+      historyAt(OrderStatus.shipped) !== null ||
+      order.status === OrderStatus.shipped ||
+      delivered;
+    const payoutIssued =
+      order.payoutStatus === PayoutStatus.issued ||
+      order.payoutStatus === PayoutStatus.redeemed;
+    const amount = order.payoutAmount.toFixed(2);
+    const step = (
+      key: string,
+      label: string,
+      completed: boolean,
+      occurredAt: Date | null,
+      description: string | null = null,
+    ): OrderTimelineStepDto => ({
+      key,
+      label,
+      status: completed ? 'completed' : cancelled ? 'skipped' : 'pending',
+      occurredAt,
+      description,
+    });
+
+    const payoutStep = step(
+      'payout_issued',
+      `Payout ${payoutIssued ? 'issued' : order.payoutStatus === PayoutStatus.held ? 'on hold' : cancelled ? 'cancelled' : 'pending'} — AED ${amount}`,
+      payoutIssued,
+      null,
+    );
+    if (
+      !payoutIssued &&
+      !cancelled &&
+      order.payoutStatus === PayoutStatus.held
+    ) {
+      payoutStep.status = 'blocked';
+    }
+
+    const timeline = [
+      step(
+        'order_confirmed',
+        'Order confirmed',
+        true,
+        historyAt(OrderStatus.confirmed) ?? order.createdAt,
+      ),
+      step(
+        'photos_verified',
+        'Photos verified & packed',
+        order.photosVerifiedAt !== null,
+        order.photosVerifiedAt,
+      ),
+      step(
+        'picked_up',
+        order.courierName
+          ? `Picked up by ${order.courierName}`
+          : 'Picked up by courier',
+        pickedUp,
+        pickedUpAt,
+      ),
+      step(
+        'delivered',
+        'Delivered to buyer',
+        delivered,
+        deliveredAt,
+        delivered ? 'Confirmed' : null,
+      ),
+      payoutStep,
+    ];
+    if (cancelled) {
+      timeline.push(
+        step(
+          'order_cancelled',
+          'Order cancelled',
+          true,
+          order.cancelledAt ??
+            courierAt('cancelled') ??
+            historyAt(OrderStatus.cancelled),
+        ),
+      );
+    }
+
+    return {
+      id: order.id,
+      subOrderNumber: order.subOrderNumber,
+      status: order.status,
+      courierName: order.courierName,
+      timeline,
+      payout: {
+        status: order.payoutStatus,
+        amount,
+        currency: 'AED',
+        issuedAt: null,
+        emailRecipient: null,
+        emailedAt: null,
+      },
+    };
   }
 
   async findAll(userId: string, query: QueryVendorOrdersDto) {
