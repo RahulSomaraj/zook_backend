@@ -74,6 +74,20 @@ export class VendorOrdersController {
     return this.orders.getTimeline(user.id, id);
   }
 
+  @Get(':id/details')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary: 'Complete vendor order and shipment-tracking details',
+    description:
+      'Returns the order and item summary, packing state, stored status history, lifecycle timeline, payout, shipment identifiers, stored courier events, and live Jeebly tracking in one response. Live tracking is null until an AWB has been created.',
+  })
+  getTrackingDetails(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.orders.getTrackingDetails(user.id, id);
+  }
+
   @Post(':id/start-packing')
   @ApiOperation({
     summary:

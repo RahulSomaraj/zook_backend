@@ -20,6 +20,7 @@ describe('Vendor order timeline API', () => {
   const userId = '22222222-2222-4222-8222-222222222222';
   const vendorId = '33333333-3333-4333-8333-333333333333';
   const path = `/api/vendors/me/orders/${id}/timeline`;
+  const detailsPath = `/api/vendors/me/orders/${id}/details`;
   const findVendor = jest.fn();
   const findOrder = jest.fn();
   const trackShipment = jest.fn();
@@ -287,6 +288,138 @@ describe('Vendor order timeline API', () => {
   it('returns 404 for missing or other-vendor orders', async () => {
     findOrder.mockResolvedValue(null);
     await getTimeline().expect(404);
+  });
+
+  it('returns all stored order details with null live tracking before shipment booking', async () => {
+    findOrder.mockResolvedValue({
+      ...baseOrder,
+      order: {
+        orderNumber: 'ORD-041',
+        paymentMethod: 'prepaid',
+        paymentStatus: 'paid',
+        estimatedDeliveryAt: deliveredAt,
+      },
+      product: {
+        id: '44444444-4444-4444-8444-444444444444',
+        conditionGrade: 'excellent',
+        storageVariant: '256 GB',
+        color: 'Black',
+        inspectionImages: ['inspection/front.jpg'],
+        catalog: {
+          model: 'iPhone 15',
+          stockImageUrl: 'catalog/iphone-15.jpg',
+          brand: { id: 'brand-1', name: 'Apple', logoUrl: null },
+        },
+      },
+      awbNumber: null,
+      packPhotoBeforeUrl: 'packing/before.jpg',
+      packPhotoAfterUrl: null,
+      packageWeightKg: null,
+      salePrice: new Prisma.Decimal('2100'),
+      commissionRate: new Prisma.Decimal('10'),
+      processingFee: new Prisma.Decimal('60.90'),
+      payoutAmount: new Prisma.Decimal('1829.10'),
+      statusHistory: [
+        {
+          status: OrderStatus.confirmed,
+          note: 'Order created',
+          createdAt,
+        },
+      ],
+    });
+
+    const { body, headers } = await request(app.getHttpServer())
+      .get(detailsPath)
+      .set('Authorization', 'Bearer vendor')
+      .expect(200);
+
+    expect(headers['cache-control']).toBe('private, no-store');
+    expect(body.data).toMatchObject({
+      id,
+      subOrderNumber: 'SUB-041',
+      order: { orderNumber: 'ORD-041' },
+      item: { title: 'Apple iPhone 15' },
+      packing: {
+        uploaded: 1,
+        complete: false,
+        nextAction: 'upload_after',
+      },
+      shipment: {
+        awbNumber: null,
+        storedEvents: [],
+        liveTracking: null,
+      },
+      payout: {
+        salePrice: '2100.00',
+        commissionRate: '10',
+        commission: '210.00',
+        processingFee: '60.90',
+        payoutAmount: '1829.10',
+        status: PayoutStatus.pending,
+        currency: 'AED',
+      },
+    });
+    expect(body.data.timeline).toHaveLength(5);
+    expect(body.data.statusHistory).toHaveLength(1);
+    expect(trackShipment).not.toHaveBeenCalled();
+  });
+
+  it('adds live courier tracking to the unified details response after booking', async () => {
+    const tracking = {
+      awbNumber: 'JB304362',
+      customerReference: 'SUB-041',
+      lastStatus: 'out_for_delivery',
+      pickupDate: '2026-06-07',
+      bookingDate: '2026-06-07',
+      bookingTime: '09:00',
+      events: [{ status: 'out_for_delivery', label: 'Out For Delivery' }],
+    };
+    findOrder.mockResolvedValue({
+      ...baseOrder,
+      order: {
+        orderNumber: 'ORD-041',
+        paymentMethod: 'prepaid',
+        paymentStatus: 'paid',
+        estimatedDeliveryAt: deliveredAt,
+      },
+      product: {
+        id: '44444444-4444-4444-8444-444444444444',
+        conditionGrade: 'excellent',
+        storageVariant: null,
+        color: null,
+        inspectionImages: [],
+        catalog: {
+          model: 'iPhone 15',
+          stockImageUrl: null,
+          brand: { id: 'brand-1', name: 'Apple', logoUrl: null },
+        },
+      },
+      courierName: 'Jeebly',
+      awbNumber: 'JB304362',
+      packPhotoBeforeUrl: 'packing/before.jpg',
+      packPhotoAfterUrl: 'packing/after.jpg',
+      packageWeightKg: new Prisma.Decimal('0.450'),
+      salePrice: new Prisma.Decimal('1000'),
+      commissionRate: new Prisma.Decimal('10'),
+      processingFee: new Prisma.Decimal('29'),
+      payoutAmount: new Prisma.Decimal('871'),
+      shipmentEvents: [],
+    });
+    trackShipment.mockResolvedValue(tracking);
+
+    const { body } = await request(app.getHttpServer())
+      .get(detailsPath)
+      .set('Authorization', 'Bearer vendor')
+      .expect(200);
+
+    expect(body.data.shipment.liveTracking).toEqual({
+      lastStatus: 'out_for_delivery',
+      pickupDate: '2026-06-07',
+      bookingDate: '2026-06-07',
+      bookingTime: '09:00',
+      events: tracking.events,
+    });
+    expect(trackShipment).toHaveBeenCalledWith('JB304362');
   });
 
   it('returns 404 when the vendor profile is missing', async () => {

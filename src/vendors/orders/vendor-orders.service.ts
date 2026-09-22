@@ -85,6 +85,117 @@ export class VendorOrdersService {
     });
     if (!order) throw new NotFoundException('Sub-order not found');
 
+    return this.buildTimeline(order);
+  }
+
+  /**
+   * Complete read model for the vendor order-details/tracking screen. The
+   * database remains useful before courier booking; live tracking is added
+   * only after an AWB exists.
+   */
+  async getTrackingDetails(userId: string, subOrderId: string) {
+    const vendorId = await this.getVendorId(userId);
+    const order = await this.prisma.subOrder.findFirst({
+      where: { id: subOrderId, vendorId },
+      include: {
+        product: {
+          include: {
+            catalog: {
+              include: {
+                brand: { select: { id: true, name: true, logoUrl: true } },
+              },
+            },
+          },
+        },
+        order: {
+          select: {
+            orderNumber: true,
+            paymentMethod: true,
+            paymentStatus: true,
+            estimatedDeliveryAt: true,
+          },
+        },
+        statusHistory: {
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          select: { status: true, note: true, createdAt: true },
+        },
+        shipmentEvents: {
+          orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+          select: {
+            status: true,
+            description: true,
+            hubName: true,
+            failureReason: true,
+            occurredAt: true,
+            receivedAt: true,
+          },
+        },
+      },
+    });
+    if (!order) throw new NotFoundException('Sub-order not found');
+
+    const liveTracking = order.awbNumber
+      ? await this.jeebly.trackShipment(order.awbNumber)
+      : null;
+    const timeline = this.buildTimeline(order);
+    const listItem = this.toListItem(order);
+    const commission = order.salePrice
+      .minus(order.processingFee)
+      .minus(order.payoutAmount)
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+
+    return {
+      id: order.id,
+      subOrderNumber: order.subOrderNumber,
+      status: order.status,
+      createdAt: order.createdAt,
+      deliveredAt: order.deliveredAt,
+      cancelledAt: order.cancelledAt,
+      order: order.order,
+      item: listItem.item,
+      packing: this.buildPackPhotosState(order),
+      statusHistory: order.statusHistory,
+      timeline: timeline.timeline,
+      shipment: {
+        courierName: order.courierName,
+        awbNumber: order.awbNumber,
+        storedEvents: order.shipmentEvents,
+        liveTracking: liveTracking
+          ? {
+              lastStatus: liveTracking.lastStatus,
+              pickupDate: liveTracking.pickupDate,
+              bookingDate: liveTracking.bookingDate,
+              bookingTime: liveTracking.bookingTime,
+              events: liveTracking.events,
+            }
+          : null,
+      },
+      payout: {
+        salePrice: order.salePrice.toFixed(2),
+        commissionRate: order.commissionRate.toString(),
+        commission: commission.toFixed(2),
+        processingFee: order.processingFee.toFixed(2),
+        payoutAmount: order.payoutAmount.toFixed(2),
+        status: order.payoutStatus,
+        currency: 'AED',
+      },
+    };
+  }
+
+  private buildTimeline(order: {
+    id: string;
+    subOrderNumber: string;
+    status: OrderStatus;
+    createdAt: Date;
+    photosVerifiedAt: Date | null;
+    deliveredAt: Date | null;
+    cancelledAt: Date | null;
+    courierName: string | null;
+    payoutStatus: PayoutStatus;
+    payoutAmount: Prisma.Decimal;
+    statusHistory: Array<{ status: OrderStatus; createdAt: Date }>;
+    shipmentEvents: Array<{ status: string; occurredAt: Date }>;
+  }): VendorOrderTimelineDto {
     const historyAt = (status: OrderStatus) =>
       order.statusHistory.find((event) => event.status === status)?.createdAt ??
       null;
