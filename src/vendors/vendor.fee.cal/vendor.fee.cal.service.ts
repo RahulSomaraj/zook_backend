@@ -31,17 +31,7 @@ export class VendorFeeCalService {
     };
   }
 
-  public async calculateFees(productId: string, userId: string) {
-    const product = await this.prisma.product.findFirst({
-      where: {
-        id: productId,
-        source: 'vendor',
-        vendor: { userId, deletedAt: null },
-      },
-      select: { price: true },
-    });
-    if (!product) throw new NotFoundException('Product not found');
-
+  public async calculateFees(productPrice: number) {
     const settings = await this.prisma.feeSettings.findUnique({
       where: { id: 1 },
       select: {
@@ -55,7 +45,7 @@ export class VendorFeeCalService {
       );
     }
     return computePayoutBreakdown(
-      product.price,
+      productPrice,
       settings.commissionRate,
       settings.mamoFeeRate,
     );

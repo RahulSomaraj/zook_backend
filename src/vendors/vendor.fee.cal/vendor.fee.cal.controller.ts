@@ -1,17 +1,18 @@
 import {
+  Body,
   Controller,
   Get,
-  Param,
-  ParseUUIDPipe,
+  HttpCode,
+  HttpStatus,
+  Post,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { AuthenticatedUser } from '../../auth/auth.types';
-import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { CalculateFeesDto } from './dto/calculate-fees.dto';
 import { VendorFeeCalService } from './vendor.fee.cal.service';
 
 @ApiTags('vendor-fee-calculation')
@@ -32,16 +33,14 @@ export class VendorFeeCalController {
     return this.vendorFeeCalService.getFees();
   }
 
-  @Get('products/:productId/payout')
+  @Post('payout-preview')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Preview the vendor payout for one unit of an owned product',
+    summary: 'Preview the vendor payout for a frontend-supplied listing price',
     description:
-      'Uses the current product price and platform fee settings. Returns salePrice, commissionRate, commission, processingFee (Mamo), and payoutAmount as decimal strings. This is an estimate, not an order payout or a transfer.',
+      'Accepts a productPrice in AED and applies the current platform fee settings. Returns salePrice, commissionRate, commission, processingFee (Mamo), and payoutAmount as decimal strings. This is an estimate, not an order payout or a transfer.',
   })
-  calculatePayout(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('productId', ParseUUIDPipe) productId: string,
-  ) {
-    return this.vendorFeeCalService.calculateFees(productId, user.id);
+  calculatePayout(@Body() dto: CalculateFeesDto) {
+    return this.vendorFeeCalService.calculateFees(dto.productPrice);
   }
 }
