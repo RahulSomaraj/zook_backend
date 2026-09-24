@@ -18,42 +18,54 @@ export class ListingsService {
     return vendor.id;
   }
 
- async create(userId: string, dto: CreateListingDto) {
-  const vendorId = await this.getVendorId(userId);
+  async create(userId: string, dto: CreateListingDto) {
+    const vendorId = await this.getVendorId(userId);
 
-  const catalogItem = await this.prisma.productCatalog.findFirst({
-    where: { id: dto.catalogId, deletedAt: null, status: CatalogStatus.active },
-  });
-  if (!catalogItem) throw new NotFoundException('Catalog item not found');
-
-  const product = await this.prisma.product.create({
-    data: {
-      vendorId,
-      catalogId: dto.catalogId,
-      source: ProductSource.vendor,
-      conditionGrade: dto.conditionGrade,
-      storageVariant: dto.storageVariant,
-      color: dto.color,
-      inspectionImages: dto.inspectionImages ?? [],
-      description: dto.description,
-      price: dto.price,
-      stockQty: dto.stockQty,
-    },
-  });
-
-  // If a store address was supplied, persist it onto the vendor profile
-  // (the address lives on the vendor, shared across listings).
-  if (dto.storeAddress !== undefined) {
-    await this.prisma.vendor.update({
-      where: { id: vendorId },
-      data: { storeAddress: dto.storeAddress },
+    const catalogItem = await this.prisma.productCatalog.findFirst({
+      where: {
+        id: dto.catalogId,
+        deletedAt: null,
+        status: CatalogStatus.active,
+      },
     });
+    if (!catalogItem) throw new NotFoundException('Catalog item not found');
+
+    const product = await this.prisma.product.create({
+      data: {
+        vendorId,
+        catalogId: dto.catalogId,
+        source: ProductSource.vendor,
+        conditionGrade: dto.conditionGrade,
+        storageVariant: dto.storageVariant,
+        color: dto.color,
+        inspectionImages: dto.inspectionImages ?? [],
+        description: dto.description,
+        price: dto.price,
+        stockQty: dto.stockQty,
+      },
+    });
+
+    // The pickup address lives on the vendor and is shared across listings.
+    const pickupAddressUpdate = {
+      ...(dto.storeAddress !== undefined
+        ? { storeAddress: dto.storeAddress }
+        : {}),
+      ...(dto.area !== undefined ? { pickupArea: dto.area } : {}),
+      ...(dto.emirate !== undefined ? { pickupEmirate: dto.emirate } : {}),
+      ...(dto.houseNo !== undefined ? { pickupHouseNo: dto.houseNo } : {}),
+      ...(dto.landmark !== undefined ? { pickupLandmark: dto.landmark } : {}),
+    };
+    if (Object.keys(pickupAddressUpdate).length > 0) {
+      await this.prisma.vendor.update({
+        where: { id: vendorId },
+        data: pickupAddressUpdate,
+      });
+    }
+
+    const pickupAddress = await this.getPickupAddress(userId);
+
+    return { ...product, pickupAddress };
   }
-
-  const pickupAddress = await this.getPickupAddress(userId);
-
-  return { ...product, pickupAddress };
-}
 
   async findAll(userId: string, query: QueryListingsDto) {
     const vendorId = await this.getVendorId(userId);
@@ -85,13 +97,25 @@ export class ListingsService {
     }
 
     if (query.search) {
-    where.OR = [
-      { description: { contains: query.search, mode: 'insensitive' } },
-      { color: { contains: query.search, mode: 'insensitive' } },
-      { catalog: { is: { model: { contains: query.search, mode: 'insensitive' } } } },
-      { catalog: { is: { brand: { is: { name: { contains: query.search, mode: 'insensitive' } } } } } },
-    ];
-    } 
+      where.OR = [
+        { description: { contains: query.search, mode: 'insensitive' } },
+        { color: { contains: query.search, mode: 'insensitive' } },
+        {
+          catalog: {
+            is: { model: { contains: query.search, mode: 'insensitive' } },
+          },
+        },
+        {
+          catalog: {
+            is: {
+              brand: {
+                is: { name: { contains: query.search, mode: 'insensitive' } },
+              },
+            },
+          },
+        },
+      ];
+    }
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.product.findMany({
@@ -123,15 +147,37 @@ export class ListingsService {
 
   async update(userId: string, id: string, dto: UpdateListingDto) {
     const vendorId = await this.getVendorId(userId);
-    const existing = await this.prisma.product.findFirst({ where: { id, vendorId } });
+    const existing = await this.prisma.product.findFirst({
+      where: { id, vendorId },
+    });
     if (!existing) throw new NotFoundException('Listing not found');
 
-    return this.prisma.product.update({ where: { id }, data: { ...dto } });
+    const { storeAddress, area, emirate, houseNo, landmark, ...productData } =
+      dto;
+
+    const pickupAddressUpdate = {
+      ...(storeAddress !== undefined ? { storeAddress } : {}),
+      ...(area !== undefined ? { pickupArea: area } : {}),
+      ...(emirate !== undefined ? { pickupEmirate: emirate } : {}),
+      ...(houseNo !== undefined ? { pickupHouseNo: houseNo } : {}),
+      ...(landmark !== undefined ? { pickupLandmark: landmark } : {}),
+    };
+
+    if (Object.keys(pickupAddressUpdate).length > 0) {
+      await this.prisma.vendor.update({
+        where: { id: vendorId },
+        data: pickupAddressUpdate,
+      });
+    }
+
+    return this.prisma.product.update({ where: { id }, data: productData });
   }
 
   async remove(userId: string, id: string) {
     const vendorId = await this.getVendorId(userId);
-    const existing = await this.prisma.product.findFirst({ where: { id, vendorId } });
+    const existing = await this.prisma.product.findFirst({
+      where: { id, vendorId },
+    });
     if (!existing) throw new NotFoundException('Listing not found');
 
     await this.prisma.product.delete({ where: { id } });

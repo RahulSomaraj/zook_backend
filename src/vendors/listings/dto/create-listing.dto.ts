@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ConditionGrade } from '@prisma/client';
+import { ConditionGrade, Emirate } from '@prisma/client';
 import {
   IsArray,
   IsEnum,
@@ -58,4 +58,28 @@ export class CreateListingDto {
   @IsOptional()
   @IsString()
   storeAddress?: string;
+
+  @ApiPropertyOptional({ description: 'Pickup area / locality' })
+  @IsOptional()
+  @IsString()
+  area?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shop, unit or house number at the pickup address',
+  })
+  @IsOptional()
+  @IsString()
+  houseNo?: string;
+
+  @ApiPropertyOptional({
+    description: 'Nearby landmark for the pickup address',
+  })
+  @IsOptional()
+  @IsString()
+  landmark?: string;
+
+  @ApiPropertyOptional({ enum: Emirate })
+  @IsOptional()
+  @IsEnum(Emirate)
+  emirate?: Emirate;
 }
